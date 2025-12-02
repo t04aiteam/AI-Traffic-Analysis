@@ -96,6 +96,21 @@ Arguments (common):
 - `--device`: CUDA device id(s) or `cpu`.
 - `--project`, `--name`, `--exist-ok`, `--workers`, `--resume`, `--patience`, `--seed`.
 
+## Export YOLO Weights to ONNX
+Convert any trained Ultralytics checkpoint to an ONNX graph that you can deploy with ONNX Runtime or TensorRT:
+
+```bash
+python detectors/ultralytic_yolo/exporter.py \
+  --weights weights/plate_yolo11n_640_2025.pt \
+  --dynamic
+```
+
+- `--weights`: path to the `.pt` file you want to export (relative or absolute).
+- `--dynamic`: keeps dynamic batch/sequence axes in the exported model; drop this flag for fixed shapes.
+- Additional exporter arguments (e.g., `--imgsz`, `--half`) can be passed through the same CLI if you need to tailor the ONNX graph to a specific runtime.
+
+Place the resulting `.onnx` file wherever your deployment stack expects it (for this repo, `weights/` keeps all exported artifacts).
+
 ## Model Zoo
 Produce a Markdown summary of the latest YOLO experiments under `runs/detect`:
 ```bash
