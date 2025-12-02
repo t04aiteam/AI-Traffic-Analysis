@@ -3,10 +3,11 @@
 </p>
 
 <h1 align="center">TonAI Vision Lab</h1>
+
 ## TrafficCam: Traffic surveillance
-### Demo pipeline result
+
 ![Demo](data/demo.jpg)
-### Interactive UI (Beta Version)
+
 ![Demo](data/demo2.png)
 
 ## Table of Contents
