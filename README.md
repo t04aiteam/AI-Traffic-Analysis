@@ -1,4 +1,9 @@
-# TrafficCam: Traffic surveillance
+<p align="center">
+  <img src="data/tonai_logo.png" alt="TonAI Vision Lab" width="200">
+</p>
+
+# TonAI Vision Lab
+## TrafficCam: Traffic surveillance
 ### Demo pipeline result
 ![Demo](data/demo.jpg)
 ### Interactive UI (Beta Version)
