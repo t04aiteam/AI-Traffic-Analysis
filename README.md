@@ -1,8 +1,26 @@
-# TrafficCam: Traffic surveillance
-### Demo pipeline result
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tungedng2710/tungedng2710.github.io/main/assets/images/logo.png" alt="TonAI Vision Lab" width="140" style="border-radius: 12px;">
+</p>
+
+<h1 align="center">TonAI Vision Lab</h1>
+
+## TrafficCam: Traffic surveillance
+
 ![Demo](data/demo.jpg)
-### Interactive UI (Beta Version)
+
 ![Demo](data/demo2.png)
+
+## Table of Contents
+- [ToDo](#todo)
+- [Prerequisite](#prerequisite)
+- [Overview](#overview)
+- [Usage](#usage)
+- [Train Ultralytics YOLO](#train-ultralytics-yolo)
+- [Export YOLO Weights to ONNX](#export-yolo-weights-to-onnx)
+- [Model Zoo](#model-zoo)
+- [Roboflow Dataset Downloader](#roboflow-dataset-downloader)
+- [WebApp](#webapp)
+- [Docker](#docker)
 
 ## ToDo
 - [ ] Vision Language Model
@@ -164,4 +182,16 @@ To build and run the image manually:
 ```bash
 docker build -t trafficcam .
 docker run -p 7867:7867 trafficcam
+```
+
+## Citation
+If this project helps your research or deployment, please cite it:
+
+```bibtex
+@misc{trafficcam2025,
+  title        = {TrafficCam: Traffic surveillance},
+  author       = {Nguyen, Tung},
+  year         = {2025},
+  howpublished = {\url{https://github.com/tungedng2710/license-plate-recognition}}
+}
 ```
