@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tungedng2710/tungedng2710.github.io/main/assets/images/logo.png" alt="TonAI Vision Lab" width="200" style="border-radius: 12px;">
+  <img src="https://raw.githubusercontent.com/tungedng2710/tungedng2710.github.io/main/assets/images/logo.png" alt="TonAI Vision Lab" width="140" style="border-radius: 12px;">
 </p>
 
-# TonAI Vision Lab
+<h1 align="center">TonAI Vision Lab</h1>
 ## TrafficCam: Traffic surveillance
 ### Demo pipeline result
 ![Demo](data/demo.jpg)
@@ -181,4 +181,16 @@ To build and run the image manually:
 ```bash
 docker build -t trafficcam .
 docker run -p 7867:7867 trafficcam
+```
+
+## Citation
+If this project helps your research or deployment, please cite it:
+
+```bibtex
+@misc{trafficcam2025,
+  title        = {TrafficCam: Traffic surveillance},
+  author       = {TonAI Vision Lab},
+  year         = {2025},
+  howpublished = {\url{https://github.com/tungedng2710/license-plate-recognition}}
+}
 ```
