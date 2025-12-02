@@ -189,7 +189,7 @@ If this project helps your research or deployment, please cite it:
 ```bibtex
 @misc{trafficcam2025,
   title        = {TrafficCam: Traffic surveillance},
-  author       = {TonAI Vision Lab},
+  author       = {Nguyen, Tung},
   year         = {2025},
   howpublished = {\url{https://github.com/tungedng2710/license-plate-recognition}}
 }
