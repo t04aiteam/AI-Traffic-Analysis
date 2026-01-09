@@ -66,7 +66,7 @@ class ALPRCore:
 
         # Tracking
         self.deepsort: bool = bool(getattr(self.opts, "deepsort", False))
-        self.dsort_weight: str = str(getattr(self.opts, "dsort_weight", "weights/deepsort/ckpt.t7"))
+        self.dsort_weight: str = str(getattr(self.opts, "dsort_weight", "weights/tracking/deepsort/ckpt.t7"))
         self.vehicles: Dict[int, Vehicle] = {}
         self._init_tracker()
 
