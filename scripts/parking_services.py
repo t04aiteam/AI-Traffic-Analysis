@@ -135,7 +135,7 @@ def _postprocess_ocr_text(text: str) -> str:
     formatted = re.sub(r"[^A-Za-z0-9\-.]", "", text)
     formatted = re.sub(r"[-.]", "", formatted)
     formatted = clean(formatted)
-    formatted = _fix_common_plate_typos(formatted)
+    # formatted = _fix_common_plate_typos(formatted)
     return formatted[:9]
 
 
@@ -219,6 +219,7 @@ class PlatePipeline:
         rec_scores = results[0].get("rec_scores", [])
         raw_text = " ".join(rec_texts) if rec_texts else ""
         normalized_text = _postprocess_ocr_text(raw_text)
+        print(raw_text)
         conf = float(sum(rec_scores) / len(rec_scores)) if rec_scores else 0.0
         return TextResult(
             text=normalized_text,
