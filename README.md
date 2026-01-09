@@ -134,7 +134,7 @@ python client_example.py --video path/to/video.mp4
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │  ┌──────────────┐                 ┌─────────────────┐    │
-│  │   main.py    │◄────────────────┤ client_example  │   │
+│  │   main.py    │◄────────────────┤ client_example  │    │
 │  │ FastAPI API  │                 │    (Python)     │    │
 │  │   Service    │                 └─────────────────┘    │
 │  │              │                                        │
