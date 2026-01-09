@@ -1,10 +1,54 @@
-version: "3.8"
 services:
-  app:
+  # Traffic Analysis Service (Main API)
+  analysis-service:
     build: .
+    container_name: traffic-analysis-service
     ports:
-      - "7866:7867"         # host:container
+      - "7862:7862"
     volumes:
-      - .:/app
-    working_dir: /app
-    command: uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7867 --reload --reload-dir /app/webapp
+      - ./weights:/app/weights
+      - ./data:/app/data
+    environment:
+      - ALPR_DEVICE=auto
+      - HOST=0.0.0.0
+      - PORT=7862
+      - VEHICLE_WEIGHT=weights/vehicle/vehicle_yolo11s_640_30oct2025.pt
+      - PLATE_WEIGHT=weights/plate/plate_yolo12n_640_2025.pt
+      - VEHICLE_CONF=0.6 
+      - PLATE_CONF=0.25
+      - OCR_THRESHOLD=0.9
+      - USE_DEEPSORT=false
+      - LANG=en
+    command: python main.py
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # WebApp (Visualization Interface)
+  webapp:
+    image: license-plate-recognition-analysis-service:latest
+    container_name: traffic-webapp
+    ports:
+      - "7863:7863"
+    volumes:
+      - ./weights:/app/weights
+      - ./data:/app/data
+      - ./webapp:/app/webapp
+    environment:
+      - ALPR_DEVICE=auto
+    command: uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863
+    restart: unless-stopped
+    depends_on:
+      - analysis-service
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

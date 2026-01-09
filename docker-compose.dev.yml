@@ -1,0 +1,51 @@
+services:
+  # Traffic Analysis Service (Main API) - Development
+  analysis-service:
+    build: .
+    container_name: traffic-analysis-service-dev
+    ports:
+      - "7862:7862"
+    volumes:
+      - .:/app
+    environment:
+      - ALPR_DEVICE=auto
+      - HOST=0.0.0.0
+      - PORT=7862
+      - VEHICLE_WEIGHT=weights/vehicle/vehicle_yolo12s_640.pt
+      - PLATE_WEIGHT=weights/plate/plate_yolov8n_320_2024.pt
+      - VEHICLE_CONF=0.6
+      - PLATE_CONF=0.25
+      - OCR_THRESHOLD=0.9
+      - USE_DEEPSORT=false
+      - LANG=en
+    command: uvicorn main:app --host 0.0.0.0 --port 7862 --reload
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # WebApp (Visualization Interface) - Development
+  webapp:
+    build: .
+    container_name: traffic-webapp-dev
+    ports:
+      - "7863:7863"
+    volumes:
+      - .:/app
+    environment:
+      - ALPR_DEVICE=auto
+    command: uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863 --reload --reload-dir /app/webapp
+    restart: unless-stopped
+    depends_on:
+      - analysis-service
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

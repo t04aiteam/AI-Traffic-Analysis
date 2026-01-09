@@ -13,69 +13,127 @@
         <img src="static/logo_notext.png" alt="TonAI Logo" class="brand-logo" />
         <div>
           <h1>TonAI AI Traffic Camera</h1>
-          <!-- <p class="tagline"></p> -->
+          <p class="tagline">Real-time License Plate Recognition System</p>
+        </div>
+      </div>
+      <div class="status-badges">
+        <div class="status-badge" id="connection-badge">
+          <span class="status-dot"></span>
+          <span class="status-text">Disconnected</span>
+        </div>
+        <div class="status-badge" id="fps-badge" style="display: none;">
+          <span class="status-icon">⚡</span>
+          <span class="status-text" id="fps-text">0 FPS</span>
         </div>
       </div>
     </header>
 
     <main class="app-main">
       <section class="stream-panel">
+        <div class="stream-info" id="stream-info" style="display: none;">
+          <span id="stream-resolution">Loading...</span>
+          <span id="stream-duration">00:00</span>
+        </div>
         <img id="alpr-stream" alt="License plate detection preview" class="stream-view" />
         <video id="webrtc-stream" class="stream-view" autoplay playsinline muted></video>
         <div class="stream-placeholder" id="stream-placeholder">
-          <p>No stream running</p>
+          <div class="placeholder-content">
+            <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <p id="placeholder-message">No stream running</p>
+            <p class="placeholder-hint">Configure your camera and click Start</p>
+          </div>
+        </div>
+        <div class="loading-overlay" id="loading-overlay" style="display: none;">
+          <div class="spinner"></div>
+          <p>Connecting...</p>
         </div>
       </section>
 
       <section class="control-panel">
-        <h2>Stream Controls</h2>
+        <div class="panel-header">
+          <h2>Stream Controls</h2>
+          <button class="icon-btn" id="refresh-cameras" title="Refresh cameras">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+          </button>
+        </div>
 
-        <label class="control-label" for="camera-select">Camera Preset</label>
-        <select id="camera-select">
-          <option value="__custom" selected>Custom URL</option>
-        </select>
+        <div class="control-group">
+          <label class="control-label" for="camera-select">Camera Preset</label>
+          <select id="camera-select">
+            <option value="__custom" selected>Custom URL</option>
+          </select>
+        </div>
 
-        <label class="control-label" for="stream-url">Stream URL</label>
-        <input id="stream-url" type="text" placeholder="rtsp://username:password@ip:port/path" autocomplete="off" />
+        <div class="control-group">
+          <label class="control-label" for="stream-url">Stream URL</label>
+          <input id="stream-url" type="text" placeholder="rtsp://username:password@ip:port/path" autocomplete="off" />
+        </div>
 
-        <label class="control-label" for="stream-mode">Stream Mode</label>
-        <select id="stream-mode">
-          <option value="preview">Camera Preview</option>
-          <option value="alpr" selected>License Plate Recognition</option>
-        </select>
+        <div class="control-group">
+          <label class="control-label" for="stream-mode">Stream Mode</label>
+          <select id="stream-mode">
+            <option value="preview">Camera Preview</option>
+            <option value="alpr" selected>License Plate Recognition</option>
+          </select>
+        </div>
 
-        <label class="control-label" for="stream-transport">Stream Transport</label>
-        <select id="stream-transport">
-          <option value="mjpeg" selected>HTTP MJPEG</option>
-          <option value="webrtc">WebRTC (beta)</option>
-        </select>
+        <div class="control-group">
+          <label class="control-label" for="stream-transport">Stream Transport</label>
+          <select id="stream-transport">
+            <option value="mjpeg" selected>HTTP MJPEG</option>
+            <option value="webrtc">WebRTC (Low Latency)</option>
+          </select>
+        </div>
 
-        <label class="control-label" for="vehicle-model">Vehicle Detector</label>
-        <select id="vehicle-model">
-          <option value="" disabled selected>Loading models...</option>
-        </select>
+        <div class="control-group">
+          <label class="control-label" for="vehicle-model">Vehicle Detector</label>
+          <select id="vehicle-model">
+            <option value="" disabled selected>Loading models...</option>
+          </select>
+        </div>
 
         <div class="control-group alpr-only">
-          <label class="control-label" for="vconf">Vehicle confidence <span id="vconf-val">0.60</span></label>
+          <label class="control-label" for="vconf">Vehicle confidence <span class="value-label" id="vconf-val">0.60</span></label>
           <input type="range" id="vconf" min="0" max="1" step="0.01" value="0.60" />
         </div>
 
         <div class="control-group alpr-only">
-          <label class="control-label" for="pconf">Plate confidence <span id="pconf-val">0.25</span></label>
+          <label class="control-label" for="pconf">Plate confidence <span class="value-label" id="pconf-val">0.25</span></label>
           <input type="range" id="pconf" min="0" max="1" step="0.01" value="0.25" />
         </div>
 
         <div class="control-toggle alpr-only">
           <label class="toggle-label" for="read-plate">
             <input type="checkbox" id="read-plate" checked />
+            <span class="toggle-slider"></span>
             <span>Read license plates</span>
           </label>
         </div>
 
         <div class="button-row">
-          <button id="start-stream">Start</button>
-          <button id="pause-stream">Pause</button>
-          <button id="stop-stream">Stop</button>
+          <button id="start-stream" class="btn-primary">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <span>Start</span>
+          </button>
+          <button id="pause-stream" class="btn-warning">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+            </svg>
+            <span>Pause</span>
+          </button>
+          <button id="stop-stream" class="btn-danger">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12"/>
+            </svg>
+            <span>Stop</span>
+          </button>
         </div>
       </section>
     </main>

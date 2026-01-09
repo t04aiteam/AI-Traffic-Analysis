@@ -1,4 +1,7 @@
-# Ignore datasets and heavy training artifacts from the Docker build context.
+# Git and version control
+.git/
+.gitignore
+.env
 
 # Python cache and virtual environments
 __pycache__/
@@ -7,19 +10,46 @@ __pycache__/
 .venv/
 venv/
 env/
+*.pyc
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Ultralytics training artifacts
 runs/
 
-# Datasets – keep only lightweight configuration files
-data/**
-!data/**/*.yaml
+# Datasets - mount as volumes instead
+data/recordings/
+data/logs/
+data/results/
+data/samples/raw/
 
-# Checkpoints – include only the weights required by the runtime
-weights/**
-!weights/vehicle_yolov9s_640_30oct2025.pt*
-!weights/plate_yolov8n_320_2024.pt
-!weights/license_plate_detector.pt
-!weights/deepsort/
-!weights/deepsort/**
-*.pt
+# Keep configuration files
+!data/config/
+
+# Model weights - mount as volumes
+# Note: Mount weights directory as volume in docker-compose
+weights/
+
+# Documentation
+*.md
+!README.md
+
+# Docker files
+Dockerfile*
+docker-compose.yml
+.dockerignore
+
+# Scripts (not needed in container)
+quickstart.sh
+scripts/install.sh
+
+# Test files
+*_test.py
+test_*.py
+api_test.py
+client_example.py
