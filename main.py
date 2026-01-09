@@ -11,7 +11,7 @@ import numpy as np
 from types import SimpleNamespace
 import os
 
-from utils.alpr_core import ALPRCore
+from utils.traffic_analysis import TrafficAnalysisService
 
 # Initialize FastAPI
 app = FastAPI(
@@ -46,7 +46,7 @@ opts = SimpleNamespace(
     lang=os.environ.get("LANG", "en"),
 )
 
-alpr_core = ALPRCore(opts)
+traffic_service = TrafficAnalysisService(opts)
 
 
 # Pydantic models for API responses
@@ -97,7 +97,7 @@ async def health():
     """Health check endpoint"""
     return HealthResponse(
         status="healthy",
-        device=str(alpr_core.opts.device),
+        device=str(traffic_service.opts.device),
         models_loaded=True
     )
 
@@ -123,14 +123,14 @@ async def predict_image(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Invalid image file")
         
         # Reset tracker for single image processing
-        alpr_core.reset()
+        traffic_service.reset()
         
         # Process frame (without drawing)
-        _ = alpr_core.process_frame(img)
+        _ = traffic_service.process_frame(img)
         
         # Extract detections
         detections = []
-        for track_id, vehicle in alpr_core.vehicles.items():
+        for track_id, vehicle in traffic_service.vehicles.items():
             bbox_xyxy = vehicle.bbox_xyxy
             
             detection = VehicleDetection(
@@ -187,11 +187,11 @@ async def predict_frame(file: UploadFile = File(...), frame_number: Optional[int
             raise HTTPException(status_code=400, detail="Invalid frame")
         
         # Process frame (maintains tracking state)
-        _ = alpr_core.process_frame(frame)
+        _ = traffic_service.process_frame(frame)
         
         # Extract detections
         detections = []
-        for track_id, vehicle in alpr_core.vehicles.items():
+        for track_id, vehicle in traffic_service.vehicles.items():
             bbox_xyxy = vehicle.bbox_xyxy
             
             detection = VehicleDetection(
@@ -234,7 +234,7 @@ async def reset_tracker():
     Reset the tracking state. Useful when starting a new video or stream.
     """
     try:
-        alpr_core.reset()
+        traffic_service.reset()
         return {"status": "success", "message": "Tracker reset successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Reset error: {str(e)}")
@@ -244,15 +244,15 @@ async def reset_tracker():
 async def get_config():
     """Get current configuration"""
     return {
-        "vehicle_weight": alpr_core.opts.vehicle_weight,
-        "plate_weight": alpr_core.opts.plate_weight,
-        "device": str(alpr_core.opts.device),
-        "vehicle_confidence": alpr_core.opts.vconf,
-        "plate_confidence": alpr_core.opts.pconf,
-        "ocr_threshold": alpr_core.ocr_thres,
-        "use_deepsort": alpr_core.deepsort,
-        "read_plate": alpr_core.read_plate,
-        "language": alpr_core.lang
+        "vehicle_weight": traffic_service.opts.vehicle_weight,
+        "plate_weight": traffic_service.opts.plate_weight,
+        "device": str(traffic_service.opts.device),
+        "vehicle_confidence": traffic_service.opts.vconf,
+        "plate_confidence": traffic_service.opts.pconf,
+        "ocr_threshold": traffic_service.ocr_thres,
+        "use_deepsort": traffic_service.deepsort,
+        "read_plate": traffic_service.read_plate,
+        "language": traffic_service.lang
     }
 
 

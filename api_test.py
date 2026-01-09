@@ -14,7 +14,7 @@ def test_imports():
         from pydantic import BaseModel
         import cv2
         import numpy as np
-        from utils.alpr_core import ALPRCore
+        from utils.traffic_analysis import TrafficAnalysisService
         print("✓ All imports successful")
         return True
     except ImportError as e:
@@ -50,12 +50,12 @@ def test_api_creation():
         return False
 
 
-def test_alpr_core():
+def test_traffic_service():
     """Test that ALPR core can be initialized"""
-    print("\nTesting ALPR Core...")
+    print("\nTesting Traffic Analysis Service...")
     try:
         from types import SimpleNamespace
-        from utils.alpr_core import ALPRCore
+        from utils.traffic_analysis import TrafficAnalysisService
         
         # Create minimal opts
         opts = SimpleNamespace(
@@ -73,7 +73,7 @@ def test_alpr_core():
         
         print("  Initializing ALPR Core (this may take a moment)...")
         start = time.time()
-        core = ALPRCore(opts)
+        core = TrafficAnalysisService(opts)
         elapsed = time.time() - start
         
         print(f"✓ ALPR Core initialized in {elapsed:.2f}s")
@@ -139,7 +139,7 @@ def main():
         ("Imports", test_imports),
         ("API Creation", test_api_creation),
         ("Response Models", test_response_models),
-        ("ALPR Core", test_alpr_core),
+        ("Traffic Analysis Service", test_traffic_service),
     ]
     
     results = []

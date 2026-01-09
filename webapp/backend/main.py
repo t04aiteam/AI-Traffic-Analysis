@@ -10,7 +10,7 @@ import json
 from types import SimpleNamespace
 from typing import Optional, Set
 from threading import Lock
-from utils.alpr_core import ALPRCore
+from utils.traffic_analysis import TrafficAnalysisService
 import os
 from typing import List
 import av
@@ -50,7 +50,7 @@ opts = SimpleNamespace(
     read_plate=True,
     lang="en",  # follow main.py label mapping (car, bus, ...)
 )
-alpr_model = ALPRCore(opts)
+traffic_service = TrafficAnalysisService(opts)
 ALPR_PROCESS_LOCK = Lock()
 peer_connections: Set[RTCPeerConnection] = set()
 
@@ -103,13 +103,13 @@ def gen_frames(
         if process:
             with ALPR_PROCESS_LOCK:
                 if read_plate is not None:
-                    alpr_model.read_plate = bool(read_plate)
-                    setattr(alpr_model.opts, "read_plate", bool(read_plate))
+                    traffic_service.read_plate = bool(read_plate)
+                    setattr(traffic_service.opts, "read_plate", bool(read_plate))
                 if vconf is not None:
-                    alpr_model.opts.vconf = float(vconf)
+                    traffic_service.opts.vconf = float(vconf)
                 if pconf is not None:
-                    alpr_model.opts.pconf = float(pconf)
-                frame = alpr_model.process_frame(frame)
+                    traffic_service.opts.pconf = float(pconf)
+                frame = traffic_service.process_frame(frame)
         _, buffer = cv2.imencode('.jpg', frame)
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
@@ -165,13 +165,13 @@ class ALPRWebRTCVideoTrack(VideoStreamTrack):
         if self._process:
             with ALPR_PROCESS_LOCK:
                 if self._read_plate is not None:
-                    alpr_model.read_plate = self._read_plate
-                    setattr(alpr_model.opts, "read_plate", self._read_plate)
+                    traffic_service.read_plate = self._read_plate
+                    setattr(traffic_service.opts, "read_plate", self._read_plate)
                 if self._vconf is not None:
-                    alpr_model.opts.vconf = self._vconf
+                    traffic_service.opts.vconf = self._vconf
                 if self._pconf is not None:
-                    alpr_model.opts.pconf = self._pconf
-                frame = alpr_model.process_frame(frame)
+                    traffic_service.opts.pconf = self._pconf
+                frame = traffic_service.process_frame(frame)
 
         pts, time_base = await self.next_timestamp()
         video_frame = av.VideoFrame.from_ndarray(frame, format="bgr24")
@@ -312,7 +312,7 @@ async def webrtc_offer(payload: dict):
 async def alpr(file: UploadFile = File(...)):
     data = await file.read()
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
-    result = alpr_model.process_image(img)
+    result = traffic_service.process_image(img)
     _, buffer = cv2.imencode('.jpg', result)
     return Response(content=buffer.tobytes(), media_type="image/jpeg")
 
@@ -340,7 +340,7 @@ def camera_presets():
 @app.get("/api/vehicle_models")
 def vehicle_models():
     weights = _find_vehicle_weights()
-    selected_path = Path(getattr(alpr_model.opts, "vehicle_weight", ""))
+    selected_path = Path(getattr(traffic_service.opts, "vehicle_weight", ""))
     selected_id: Optional[str] = None
     try:
         selected_id = selected_path.relative_to(VEHICLE_WEIGHTS_DIR).as_posix()
@@ -384,7 +384,7 @@ def select_vehicle_model(payload: dict):
 
     with ALPR_PROCESS_LOCK:
         try:
-            alpr_model.set_vehicle_weight(str(resolved_path))
+            traffic_service.set_vehicle_weight(str(resolved_path))
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to load vehicle model: {exc}") from exc
 

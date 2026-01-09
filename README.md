@@ -151,8 +151,8 @@ python client_example.py --video path/to/video.mp4
 │         ▼                                                │
 │  ┌────────────────┐                                      │
 │  │ utils/         │                                      │
-│  │ alpr_core.py   │   Core Processing Logic              │
-│  │                │   - Vehicle Detection (YOLO)         │
+│  │ traffic_       │   Core Processing Logic              │
+│  │  analysis.py   │   - Vehicle Detection (YOLO)         │
 │  │                │   - Plate Detection (YOLO)           │
 │  │                │   - OCR (PaddleOCR)                  │
 │  │                │   - Tracking (SORT/DeepSORT)         │
@@ -195,10 +195,10 @@ license-plate-recognition/
 │   ├── tracking/             # DeepSORT tracker weights
 │   └── ocr/                  # PaddleOCR models
 ├── utils/                     # Core utilities
-│   ├── alpr_core.py          # Core ALPR processing logic
+│   ├── traffic_analysis.py   # Traffic Analysis Service (core logic)
 │   ├── ocr.py                # OCR utilities
 │   ├── utils.py              # Helper functions
-│   └── traffic_configs.py    # Configuration management
+│   └── ppocr_configs.yaml    # PaddleOCR configuration
 ├── tracking/                  # Object tracking algorithms
 │   ├── sort.py               # SORT tracker
 │   └── deep_sort/            # DeepSORT tracker

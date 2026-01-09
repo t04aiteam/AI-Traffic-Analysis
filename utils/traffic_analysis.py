@@ -24,9 +24,12 @@ from utils.utils import (
 )
 
 
-class ALPRCore:
+class TrafficAnalysisService:
     """
-    Shared ALPR pipeline used by both CLI and webapp.
+    AI Traffic Analysis Service - Core processing pipeline.
+    
+    Analyzes traffic scenes with vehicle detection, license plate recognition,
+    and multi-object tracking capabilities.
 
     - Detects vehicles and plates with YOLO
     - Tracks with SORT/DeepSORT
