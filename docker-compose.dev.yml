@@ -1,13 +1,12 @@
 services:
-  # Traffic Analysis Service (Main API)
+  # Traffic Analysis Service (Main API) - Development
   analysis-service:
     build: .
-    container_name: traffic-analysis-service
+    container_name: traffic-analysis-service-dev
     ports:
       - "7862:7862"
     volumes:
-      - ./weights:/app/weights
-      - ./data:/app/data
+      - .:/app
     environment:
       - ALPR_DEVICE=auto
       - HOST=0.0.0.0
@@ -19,7 +18,7 @@ services:
       - OCR_THRESHOLD=0.9
       - USE_DEEPSORT=false
       - LANG=en
-    command: python main.py
+    command: uvicorn main:app --host 0.0.0.0 --port 7862 --reload
     restart: unless-stopped
     deploy:
       resources:
@@ -29,19 +28,17 @@ services:
               count: all
               capabilities: [gpu]
 
-  # WebApp (Visualization Interface)
+  # WebApp (Visualization Interface) - Development
   webapp:
     build: .
-    container_name: traffic-webapp
+    container_name: traffic-webapp-dev
     ports:
       - "7863:7863"
     volumes:
-      - ./weights:/app/weights
-      - ./data:/app/data
-      - ./webapp:/app/webapp
+      - .:/app
     environment:
       - ALPR_DEVICE=auto
-    command: uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863
+    command: uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863 --reload --reload-dir /app/webapp
     restart: unless-stopped
     depends_on:
       - analysis-service

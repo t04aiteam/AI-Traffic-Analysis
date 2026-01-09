@@ -82,6 +82,22 @@ TrafficCam is a comprehensive traffic surveillance and license plate recognition
 
 ## Quick Start
 
+### Option 1: Using Docker (Recommended)
+
+```bash
+# Start both services with one command
+docker compose up -d
+
+# Or use the helper script
+./docker.sh start
+```
+
+**Services will be available at:**
+- Analysis API: http://localhost:7862 (Swagger: http://localhost:7862/docs)
+- WebApp: http://localhost:7863
+
+### Option 2: Manual Installation
+
 ### 1. Installation
 
 ```bash
@@ -95,7 +111,10 @@ pip install -r requirements.txt
 ### 2. Start API Service
 
 ```bash
-# Using Python
+# Quick start
+./quickstart.sh
+
+# Or manually
 python main.py
 
 # Using Uvicorn (production)
@@ -594,13 +613,48 @@ Open `http://localhost:7863` in your browser.
 
 ## Docker Deployment
 
-### Using Docker Compose
+### Quick Start with Docker Compose
+
+Run both services (Analysis API + WebApp) with a single command:
 
 ```bash
-docker compose up --build
+# Production mode (detached)
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
 ```
 
-Service will be available at `http://localhost:7863`
+**Using Helper Script:**
+
+```bash
+./docker.sh start       # Start services
+./docker.sh logs        # View logs
+./docker.sh status      # Check status
+./docker.sh stop        # Stop services
+./docker.sh help        # Show all commands
+```
+
+**Services:**
+- Analysis Service API: http://localhost:7862
+  - Swagger UI: http://localhost:7862/docs
+  - ReDoc: http://localhost:7862/redoc
+- WebApp Interface: http://localhost:7863
+
+### Development Mode
+
+For hot-reloading during development:
+
+```bash
+# Start in development mode
+docker compose -f docker-compose.dev.yml up
+
+# Or detached
+docker compose -f docker-compose.dev.yml up -d
+```
 
 ### Manual Docker Build
 
@@ -608,12 +662,31 @@ Service will be available at `http://localhost:7863`
 # Build image
 docker build -t trafficcam .
 
-# Run container
-docker run -p 7862:7862 -v $(pwd)/weights:/app/weights trafficcam
+# Run analysis service
+docker run -d \
+  -p 7862:7862 \
+  -v $(pwd)/weights:/app/weights \
+  -v $(pwd)/data:/app/data \
+  --name traffic-analysis \
+  trafficcam
 
-# For webapp
-docker run -p 7863:7863 trafficcam
+# Run webapp
+docker run -d \
+  -p 7863:7863 \
+  -v $(pwd)/weights:/app/weights \
+  -v $(pwd)/data:/app/data \
+  --name traffic-webapp \
+  trafficcam \
+  uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863
 ```
+
+### GPU Support
+
+The docker-compose files include GPU support. If you don't have GPU, remove the `deploy` section from docker-compose.yml or set `ALPR_DEVICE=cpu`.
+
+**Requirements:**
+- NVIDIA Docker runtime installed
+- NVIDIA GPU with CUDA support
 
 ---
 
