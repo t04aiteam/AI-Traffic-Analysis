@@ -99,19 +99,19 @@ pip install -r requirements.txt
 python main.py
 
 # Using Uvicorn (production)
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port 7862
 ```
 
-The service will start on `http://localhost:8000`
+The service will start on `http://localhost:7862`
 
 ### 3. Test the Service
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:7862/health
 
 # Process an image
-curl -X POST http://localhost:8000/predict/image \
+curl -X POST http://localhost:7862/predict/image \
   -F "file=@path/to/image.jpg"
 
 # Using example client
@@ -121,8 +121,8 @@ python client_example.py --video path/to/video.mp4
 ```
 
 ### 4. Interactive API Documentation
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI**: http://localhost:7862/docs
+- **ReDoc**: http://localhost:7862/redoc
 
 ---
 
@@ -242,7 +242,7 @@ export LANG=en                 # Options: en, vi, es, fr
 
 # Server
 export HOST=0.0.0.0
-export PORT=8000
+export PORT=7862
 ```
 
 ### API Endpoints
@@ -290,21 +290,21 @@ export PORT=8000
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:7862/health
 
 # Process image
-curl -X POST http://localhost:8000/predict/image \
+curl -X POST http://localhost:7862/predict/image \
   -F "file=@car.jpg"
 
 # Process video frame
-curl -X POST "http://localhost:8000/predict/frame?frame_number=42" \
+curl -X POST "http://localhost:7862/predict/frame?frame_number=42" \
   -F "file=@frame.jpg"
 
 # Reset tracker
-curl -X POST http://localhost:8000/reset
+curl -X POST http://localhost:7862/reset
 
 # Get configuration
-curl http://localhost:8000/config
+curl http://localhost:7862/config
 ```
 
 #### Using Python
@@ -315,7 +315,7 @@ import requests
 # Process single image
 with open("car.jpg", "rb") as f:
     response = requests.post(
-        "http://localhost:8000/predict/image",
+        "http://localhost:7862/predict/image",
         files={"file": f}
     )
     data = response.json()
@@ -329,7 +329,7 @@ cap = cv2.VideoCapture("video.mp4")
 frame_num = 0
 
 # Reset tracker before processing
-requests.post("http://localhost:8000/reset")
+requests.post("http://localhost:7862/reset")
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -343,7 +343,7 @@ while cap.isOpened():
     files = {"file": ("frame.jpg", buffer.tobytes(), "image/jpeg")}
     params = {"frame_number": frame_num}
     response = requests.post(
-        "http://localhost:8000/predict/frame",
+        "http://localhost:7862/predict/frame",
         files=files,
         params=params
     )
@@ -574,10 +574,10 @@ The script checks Roboflow every 10 minutes (configurable), downloads new versio
 ```bash
 cd webapp
 pip install -r requirements.txt
-uvicorn backend.main:app --host 0.0.0.0 --port 7860
+uvicorn backend.main:app --host 0.0.0.0 --port 7863
 ```
 
-Open `http://localhost:7860` in your browser.
+Open `http://localhost:7863` in your browser.
 
 ### Features
 
@@ -600,7 +600,7 @@ Open `http://localhost:7860` in your browser.
 docker compose up --build
 ```
 
-Service will be available at `http://localhost:7867`
+Service will be available at `http://localhost:7863`
 
 ### Manual Docker Build
 
@@ -609,10 +609,10 @@ Service will be available at `http://localhost:7867`
 docker build -t trafficcam .
 
 # Run container
-docker run -p 8000:8000 -v $(pwd)/weights:/app/weights trafficcam
+docker run -p 7862:7862 -v $(pwd)/weights:/app/weights trafficcam
 
 # For webapp
-docker run -p 7867:7867 trafficcam
+docker run -p 7863:7863 trafficcam
 ```
 
 ---
@@ -671,7 +671,7 @@ Copyright (C) 2023-2026 TonAI Vision Lab
 ## Support
 
 For questions and issues:
-- Check the [Interactive API Documentation](http://localhost:8000/docs) when service is running
+- Check the [Interactive API Documentation](http://localhost:7862/docs) when service is running
 - Review example code in [client_example.py](client_example.py)
 - Check existing issues or contact the development team
 
