@@ -2,12 +2,12 @@
 Train Ultralytics YOLO with CLI arguments.
 
 Examples:
-  python detectors/ultralytic_yolo/train_yolov8.py \
+  python detectors/yolo/train_ultralytics.py \
     --data data/Peru_License_Plate/data.yaml \
     --model yolov8n.yaml --epochs 200 --batch 16 --imgsz 320 --device 0
 
 You can also use the bash wrapper:
-  ./scripts/train_yolov8.sh --data data/Peru_License_Plate/data.yaml --model yolov8n.yaml
+  ./scripts/train_yolo.sh --data data/Peru_License_Plate/data.yaml --model yolov8n.yaml
 """
 from __future__ import annotations
 
