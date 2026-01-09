@@ -16,7 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const vehicleModelSelect = document.getElementById('vehicle-model');
   const controlPanel = document.querySelector('.control-panel');
   const placeholder = document.getElementById('stream-placeholder');
-  const placeholderText = placeholder ? placeholder.querySelector('p') : null;
+  const placeholderText = placeholder ? placeholder.querySelector('#placeholder-message') : null;
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const connectionBadge = document.getElementById('connection-badge');
+  const fpsBadge = document.getElementById('fps-badge');
+  const fpsText = document.getElementById('fps-text');
+  const streamInfo = document.getElementById('stream-info');
+  const refreshCamerasBtn = document.getElementById('refresh-cameras');
+  
   const CUSTOM_OPTION_VALUE = '__custom';
   const TRANSPORT_MJPEG = 'mjpeg';
   const TRANSPORT_WEBRTC = 'webrtc';
@@ -44,6 +51,76 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentStreamNonce = 0;
   let lastStartConfig = null;
   let currentVehicleModel = null;
+  let fpsInterval = null;
+  let lastFrameTime = 0;
+  let frameCount = 0;
+  let streamStartTime = null;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 3;
+
+  function updateConnectionStatus(status, text) {
+    if (!connectionBadge) return;
+    connectionBadge.className = 'status-badge';
+    if (status) {
+      connectionBadge.classList.add(status);
+    }
+    const statusText = connectionBadge.querySelector('.status-text');
+    if (statusText && text) {
+      statusText.textContent = text;
+    }
+  }
+
+  function showLoading(show = true) {
+    if (loadingOverlay) {
+      loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
+  }
+
+  function updateFPS(fps) {
+    if (!fpsBadge || !fpsText) return;
+    if (fps > 0) {
+      fpsText.textContent = `${Math.round(fps)} FPS`;
+      fpsBadge.style.display = 'flex';
+    } else {
+      fpsBadge.style.display = 'none';
+    }
+  }
+
+  function startFPSCounter() {
+    stopFPSCounter();
+    frameCount = 0;
+    lastFrameTime = Date.now();
+    
+    fpsInterval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = (now - lastFrameTime) / 1000;
+      if (elapsed > 0) {
+        const fps = frameCount / elapsed;
+        updateFPS(fps);
+        frameCount = 0;
+        lastFrameTime = now;
+      }
+    }, 1000);
+  }
+
+  function stopFPSCounter() {
+    if (fpsInterval) {
+      clearInterval(fpsInterval);
+      fpsInterval = null;
+    }
+    updateFPS(0);
+  }
+
+  function updateStreamDuration() {
+    if (!streamStartTime || !streamInfo) return;
+    const duration = Math.floor((Date.now() - streamStartTime) / 1000);
+    const minutes = Math.floor(duration / 60);
+    const seconds = duration % 60;
+    const durationEl = document.getElementById('stream-duration');
+    if (durationEl) {
+      durationEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+  }
 
   function getSelectedTransport() {
     return transportSelect.value || TRANSPORT_MJPEG;
@@ -80,6 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
       webrtcVideo.srcObject = null;
       webrtcVideo.style.display = 'none';
     }
+    if (streamInfo) {
+      streamInfo.style.display = 'none';
+    }
+    stopFPSCounter();
   }
 
   function teardownWebRTC() {
@@ -87,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         peerConnection.ontrack = null;
         peerConnection.onconnectionstatechange = null;
+        peerConnection.oniceconnectionstatechange = null;
         peerConnection.close();
       } catch (error) {
         // ignore teardown errors
@@ -99,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       webrtcVideo.srcObject = null;
       webrtcVideo.style.display = 'none';
     }
+    stopFPSCounter();
   }
 
   function stopStream(message = 'No stream running') {
@@ -107,9 +190,13 @@ document.addEventListener('DOMContentLoaded', () => {
     currentSrc = '';
     currentTransport = getSelectedTransport();
     paused = false;
-    pauseBtn.textContent = 'Pause';
+    pauseBtn.querySelector('span').textContent = 'Pause';
     lastStartConfig = null;
     showPlaceholder(message);
+    updateConnectionStatus('', 'Disconnected');
+    showLoading(false);
+    streamStartTime = null;
+    reconnectAttempts = 0;
   }
 
   function showPlaceholder(message) {
@@ -121,12 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     placeholder.style.display = 'flex';
     hideAllStreams();
+    showLoading(false);
   }
 
   function showMjpegStream(src) {
     currentTransport = TRANSPORT_MJPEG;
     currentSrc = src;
     streamImg.src = src;
+    streamImg.classList.add('fade-in');
     streamImg.style.display = 'block';
     if (webrtcVideo) {
       webrtcVideo.style.display = 'none';
@@ -135,6 +224,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (placeholder) {
       placeholder.style.display = 'none';
     }
+    if (streamInfo) {
+      streamInfo.style.display = 'flex';
+    }
+    showLoading(false);
+    updateConnectionStatus('connected', 'Connected');
+    streamStartTime = Date.now();
+    startFPSCounter();
+    
+    // Update stream resolution if possible
+    streamImg.onload = () => {
+      const resolutionEl = document.getElementById('stream-resolution');
+      if (resolutionEl) {
+        resolutionEl.textContent = `${streamImg.naturalWidth}x${streamImg.naturalHeight}`;
+      }
+    };
   }
 
   async function applyVehicleModel(weightId) {
@@ -285,22 +389,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const endpoint = preview ? '/api/video' : '/api/alpr_stream';
     const src = `${endpoint}?${params.toString()}`;
     paused = false;
-    pauseBtn.textContent = 'Pause';
+    pauseBtn.querySelector('span').textContent = 'Pause';
     showMjpegStream(src);
+  }
+
+  async function attemptWebRTCReconnect(config, nonce) {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      showPlaceholder(`WebRTC connection failed after ${MAX_RECONNECT_ATTEMPTS} attempts. Click Start to retry.`);
+      updateConnectionStatus('error', 'Connection Failed');
+      return;
+    }
+    
+    reconnectAttempts++;
+    updateConnectionStatus('connecting', `Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+    
+    await new Promise(resolve => setTimeout(resolve, 2000 * reconnectAttempts));
+    
+    if (nonce === currentStreamNonce) {
+      await startWebRTCStream(config, nonce);
+    }
   }
 
   async function startWebRTCStream(config, nonce) {
     teardownWebRTC();
     currentTransport = TRANSPORT_WEBRTC;
     hideAllStreams();
-    if (placeholder) {
-      if (placeholderText) {
-        placeholderText.textContent = 'Connecting via WebRTC...';
-      }
-      placeholder.style.display = 'flex';
-    }
-
-    const pc = new RTCPeerConnection();
+    showLoading(true);
+    updateConnectionStatus('connecting', 'Connecting...');
+    
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
     peerConnection = pc;
 
     pc.addTransceiver('video', { direction: 'recvonly' });
@@ -314,22 +433,80 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       webrtcVideo.srcObject = stream;
+      webrtcVideo.classList.add('fade-in');
       webrtcVideo.style.display = 'block';
       if (placeholder) {
         placeholder.style.display = 'none';
       }
+      if (streamInfo) {
+        streamInfo.style.display = 'flex';
+      }
+      showLoading(false);
+      updateConnectionStatus('connected', 'Connected (WebRTC)');
+      reconnectAttempts = 0;
+      streamStartTime = Date.now();
+      
       const playPromise = webrtcVideo.play();
       if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {});
+        playPromise.catch((err) => {
+          console.error('WebRTC playback error:', err);
+        });
+      }
+      
+      // Start FPS tracking
+      startFPSCounter();
+      
+      // Track video metadata
+      webrtcVideo.onloadedmetadata = () => {
+        const resolutionEl = document.getElementById('stream-resolution');
+        if (resolutionEl) {
+          resolutionEl.textContent = `${webrtcVideo.videoWidth}x${webrtcVideo.videoHeight}`;
+        }
+      };
+      
+      // Count frames for FPS
+      const trackFrames = () => {
+        if (webrtcVideo.readyState >= 2) {
+          frameCount++;
+        }
+        if (nonce === currentStreamNonce && !paused) {
+          requestAnimationFrame(trackFrames);
+        }
+      };
+      trackFrames();
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'connected') {
+        updateConnectionStatus('connected', 'Connected (WebRTC)');
+      } else if (pc.iceConnectionState === 'checking') {
+        updateConnectionStatus('connecting', 'Establishing connection...');
+      } else if (pc.iceConnectionState === 'disconnected') {
+        updateConnectionStatus('error', 'Disconnected');
+        if (nonce === currentStreamNonce && lastStartConfig) {
+          attemptWebRTCReconnect(config, nonce);
+        }
+      } else if (pc.iceConnectionState === 'failed') {
+        updateConnectionStatus('error', 'Connection Failed');
+        if (nonce === currentStreamNonce && lastStartConfig) {
+          attemptWebRTCReconnect(config, nonce);
+        }
       }
     };
 
     pc.onconnectionstatechange = () => {
+      console.log('Connection state:', pc.connectionState);
       if (pc.connectionState === 'failed') {
-        showPlaceholder('WebRTC connection failed');
+        showPlaceholder('WebRTC connection failed. Click Start to retry.');
+        updateConnectionStatus('error', 'Connection Failed');
         teardownWebRTC();
       } else if (pc.connectionState === 'disconnected') {
-        showPlaceholder('WebRTC connection lost');
+        if (nonce === currentStreamNonce && !paused) {
+          updateConnectionStatus('error', 'Connection lost');
+        }
+      } else if (pc.connectionState === 'connected') {
+        updateConnectionStatus('connected', 'Connected (WebRTC)');
       }
     };
 
@@ -366,37 +543,54 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${errorText}`);
       }
       if (nonce !== currentStreamNonce) {
         return;
       }
       const answer = await response.json();
       await pc.setRemoteDescription(answer);
-      if (placeholder) {
-        placeholder.style.display = 'none';
-      }
+      showLoading(false);
       paused = false;
-      pauseBtn.textContent = 'Pause';
+      pauseBtn.querySelector('span').textContent = 'Pause';
     } catch (error) {
-      console.error('Failed to start WebRTC stream', error); // eslint-disable-line no-console
-      showPlaceholder('Unable to start WebRTC stream. Check console for details.');
+      console.error('Failed to start WebRTC stream', error);
+      showPlaceholder(`Unable to start WebRTC: ${error.message}`);
+      updateConnectionStatus('error', 'Connection Failed');
       teardownWebRTC();
+      showLoading(false);
     }
   }
 
   async function startStream(config) {
     lastStartConfig = config;
     paused = false;
-    pauseBtn.textContent = 'Pause';
+    pauseBtn.querySelector('span').textContent = 'Pause';
     currentStreamNonce += 1;
     const nonce = currentStreamNonce;
+    reconnectAttempts = 0;
+    
     if (config.transport === TRANSPORT_WEBRTC) {
       await startWebRTCStream(config, nonce);
     } else {
       startMjpegStream(config);
     }
   }
+
+  // Update stream duration periodically
+  setInterval(() => {
+    if (streamStartTime) {
+      updateStreamDuration();
+    }
+  }, 1000);
+
+  // Track MJPEG frames for FPS
+  streamImg.addEventListener('load', () => {
+    if (currentTransport === TRANSPORT_MJPEG && streamImg.style.display === 'block') {
+      frameCount++;
+    }
+  });
 
   if (vconf) {
     vconf.addEventListener('input', () => {
@@ -439,18 +633,29 @@ document.addEventListener('DOMContentLoaded', () => {
     await applyVehicleModel(value);
   });
 
+  if (refreshCamerasBtn) {
+    refreshCamerasBtn.addEventListener('click', () => {
+      loadCameraPresets();
+    });
+  }
+
   startBtn.addEventListener('click', async () => {
     const url = streamInput.value.trim();
     if (!url) {
       streamInput.classList.add('input-error');
       streamInput.focus();
-      showPlaceholder('Provide a stream URL to begin');
+      showPlaceholder('Please provide a stream URL');
       return;
     }
 
-    const mode = getSelectedMode();
-    const config = buildStreamConfig(url, mode);
-    await startStream(config);
+    startBtn.disabled = true;
+    try {
+      const mode = getSelectedMode();
+      const config = buildStreamConfig(url, mode);
+      await startStream(config);
+    } finally {
+      startBtn.disabled = false;
+    }
   });
 
   pauseBtn.addEventListener('click', async () => {
@@ -465,11 +670,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!paused) {
         streamImg.removeAttribute('src');
         showPlaceholder('Stream paused');
-        pauseBtn.textContent = 'Resume';
+        pauseBtn.querySelector('span').textContent = 'Resume';
+        updateConnectionStatus('', 'Paused');
         paused = true;
+        stopFPSCounter();
       } else {
         showMjpegStream(currentSrc);
-        pauseBtn.textContent = 'Pause';
+        pauseBtn.querySelector('span').textContent = 'Pause';
+        updateConnectionStatus('connected', 'Connected');
         paused = false;
       }
       return;
@@ -478,14 +686,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!paused) {
       teardownWebRTC();
       showPlaceholder('Stream paused');
-      pauseBtn.textContent = 'Resume';
+      pauseBtn.querySelector('span').textContent = 'Resume';
+      updateConnectionStatus('', 'Paused');
       paused = true;
     } else {
       if (!lastStartConfig) {
         return;
       }
       paused = false;
-      pauseBtn.textContent = 'Pause';
+      pauseBtn.querySelector('span').textContent = 'Pause';
       await startStream(lastStartConfig);
     }
   });
@@ -493,16 +702,16 @@ document.addEventListener('DOMContentLoaded', () => {
   stopBtn.addEventListener('click', () => {
     const preview = getSelectedMode() === 'preview';
     const message = preview
-      ? 'Camera preview stopped. Start to view the camera feed.'
-      : 'No stream running';
+      ? 'Camera preview stopped. Click Start to view the camera feed.'
+      : 'Stream stopped. Configure your camera and click Start.';
     stopStream(message);
   });
 
   transportSelect.addEventListener('change', () => {
     const value = getSelectedTransport();
     const message = value === TRANSPORT_WEBRTC
-      ? 'WebRTC selected. Start to negotiate the stream.'
-      : 'HTTP MJPEG selected. Start to view the camera feed.';
+      ? 'WebRTC selected. Low latency streaming with automatic reconnection.'
+      : 'HTTP MJPEG selected. Click Start to view the camera feed.';
     stopStream(message);
   });
 
@@ -510,7 +719,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!currentSrc) {
       return;
     }
-    stopStream('Unable to load stream. Check the URL and try again.');
+    stopStream('Stream connection lost. Please check the URL and try again.');
+    updateConnectionStatus('error', 'Stream Error');
   });
 
   if (modeSelect) {
@@ -518,14 +728,15 @@ document.addEventListener('DOMContentLoaded', () => {
       applyModeState();
       const preview = getSelectedMode() === 'preview';
       const message = preview
-        ? 'Preview mode selected. Start to view the camera feed.'
-        : 'ALPR mode selected. Start to begin detection.';
+        ? 'Preview mode: View camera feed without license plate detection.'
+        : 'ALPR mode: Real-time license plate recognition enabled.';
       stopStream(message);
     });
   }
 
   applyModeState();
-  showPlaceholder('No stream running');
+  showPlaceholder('Ready to start. Configure your camera and click Start.');
+  updateConnectionStatus('', 'Disconnected');
 
   async function loadCameraPresets() {
     cameraSelect.disabled = true;
