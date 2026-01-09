@@ -222,8 +222,8 @@ license-plate-recognition/
 │   ├── sort.py               # SORT tracker
 │   └── deep_sort/            # DeepSORT tracker
 ├── detectors/                 # Detector implementations
-│   ├── ultralytic_yolo/      # Ultralytics YOLO (v8, v9, v11, v12)
-│   └── yolov9/               # YOLOv9 native
+│   ├── yolo/                 # Ultralytics YOLO (v8, v9, v10, v11)
+│   └── rf-detr/              # RF-DETR transformer detector
 ├── scripts/                   # Training and testing scripts
 └── webapp/                    # Web visualization application (beta)
     ├── backend/              # FastAPI backend for streaming
@@ -414,7 +414,7 @@ Train a detector directly from the CLI:
   --device 0
 
 # Or using Python directly
-python detectors/ultralytic_yolo/train_ultralytics.py \
+python detectors/yolo/train_ultralytics.py \
   --data data/Peru_License_Plate/data.yaml \
   --model yolov8n.yaml \
   --epochs 200 \
@@ -436,7 +436,7 @@ python detectors/ultralytic_yolo/train_ultralytics.py \
 Convert trained models to ONNX format for deployment:
 
 ```bash
-python detectors/ultralytic_yolo/exporter.py \
+python detectors/yolo/exporter.py \
   --weights weights/plate/plate_yolo11n_640_2025.pt \
   --dynamic
 ```
