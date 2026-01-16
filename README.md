@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tungedng2710/tungedng2710.github.io/main/assets/images/logo.png" alt="TonAI Vision Lab" width="140" style="border-radius: 12px;">
+  <img src="https://raw.githubusercontent.com/tungedng2710/tungedng2710.github.io/main/assets/images/tonai_logo.png" alt="TonAI Vision Lab" width="200" style="border-radius: 80px;">
 </p>
 
 <h1 align="center">TonAI Vision Lab - TrafficCam</h1>
