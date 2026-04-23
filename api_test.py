@@ -59,7 +59,7 @@ def test_traffic_service():
         
         # Create minimal opts
         opts = SimpleNamespace(
-            vehicle_weight="weights/vehicle/vehicle_yolo12s_640.pt",
+            vehicle_weight="weights/vehicle/vehicle_yolov9s_640_30oct2025.pt",
             plate_weight="weights/plate/plate_yolov8n_320_2024.pt",
             dsort_weight="weights/tracking/deepsort/ckpt.t7",
             vconf=0.6,

@@ -34,7 +34,7 @@ DEFAULT_DEVICE = os.environ.get("ALPR_DEVICE", "auto")
 
 # Initialize ALPR Core
 opts = SimpleNamespace(
-    vehicle_weight=os.environ.get("VEHICLE_WEIGHT", "weights/vehicle/vehicle_yolo12s_640.pt"),
+    vehicle_weight=os.environ.get("VEHICLE_WEIGHT", "weights/vehicle/vehicle_yolov9s_640_30oct2025.pt"),
     plate_weight=os.environ.get("PLATE_WEIGHT", "weights/plate/plate_yolov8n_320_2024.pt"),
     dsort_weight=os.environ.get("DSORT_WEIGHT", "weights/tracking/deepsort/ckpt.t7"),
     vconf=float(os.environ.get("VEHICLE_CONF", "0.6")),
