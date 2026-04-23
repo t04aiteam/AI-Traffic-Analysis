@@ -12,7 +12,7 @@ weights/
 │   ├── vehicle_yolo11s_640.pt
 │   ├── vehicle_yolo11s_640.onnx
 │   ├── vehicle_yolo11s_640_18sep2025.pt
-│   ├── vehicle_yolo11s_640_30oct2025.pt
+│   ├── vehicle_yolov9s_640_30oct2025.pt
 │   ├── vehicle_yolo12m_640_18sep2025.pt
 │   ├── vehicle_yolo12s_640.pt
 │   ├── vehicle_yolo12s_640.onnx

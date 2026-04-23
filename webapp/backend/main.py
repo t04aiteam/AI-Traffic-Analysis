@@ -53,7 +53,7 @@ VEHICLE_WEIGHT_EXTENSIONS = {".pt", ".pth"}
 
 # Initialize ALPR tracker (tracking + OCR) using shared core
 opts = SimpleNamespace(
-    vehicle_weight=str(REPO_ROOT / "weights" / "vehicle" / "vehicle_yolo11s_640_30oct2025.pt"),
+    vehicle_weight=str(REPO_ROOT / "weights" / "vehicle" / "vehicle_yolov9s_640_30oct2025.pt"),
     plate_weight=str(REPO_ROOT / "weights" / "plate" / "plate_yolo12n_640_2025.pt"),
     dsort_weight=str(REPO_ROOT / "weights" / "tracking" / "deepsort" / "ckpt.t7"),
     vconf=0.6,
