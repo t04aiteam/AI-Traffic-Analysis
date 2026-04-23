@@ -11,10 +11,10 @@ def get_args():
     parser.add_argument("--input_source", type=str, default="data/samples/test_samples/xe4.jpg",
                         help="path to the image for testing")
     parser.add_argument("--vehicle_weight", type=str,
-                        default="weights/vehicle/vehicle_yolov8s_640.pt",
+                        default="weights/vehicle/vehicle_yolov9s_640_30oct2025.pt",
                         help="path to the yolov8 weight of vehicle detector")
     parser.add_argument("--plate_weight", type=str,
-                        default="weights/plate/plate_yolov8n_320_2024.pt",
+                        default="weights/plate/plate_yolov9s_640_2025.pt",
                         help="path to the yolov8 weight of plate detector")
     parser.add_argument("--vconf", type=float, default=0.6,
                         help="confidence for vehicle detection")
