@@ -4,7 +4,7 @@ import os
 import argparse
 from ultralytics import YOLO
 from test_ocr import extract_plate_info
-from utils.utils import BGR_COLORS, check_legit_plate, check_image_size, draw_text, \
+from utils.utils import BGR_COLORS, check_legit_plate, check_image_size, draw_text, 
     crop_expanded_plate
 
 def get_args():
@@ -171,8 +171,9 @@ if __name__ == '__main__':
                 del image
 
             key = cv2.waitKey(1)
-            if key == ord('q'): # Quit video
+            if key == ord('q'):  # Quit video
                 break
+
         cap.release()
         writer.release()
-        cv2.destroyAllWindows().
+        cv2.destroyAllWindows()
