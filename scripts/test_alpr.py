@@ -4,8 +4,7 @@ import os
 import argparse
 from ultralytics import YOLO
 from test_ocr import extract_plate_info
-from utils.utils import BGR_COLORS, check_legit_plate, check_image_size, draw_text, 
-    crop_expanded_plate
+from utils.utils import BGR_COLORS, check_legit_plate, check_image_size, draw_text, crop_expanded_plate
 
 def get_args():
     parser = argparse.ArgumentParser()
