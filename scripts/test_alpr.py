@@ -7,7 +7,6 @@ from test_ocr import extract_plate_info
 from utils.utils import BGR_COLORS, check_legit_plate, check_image_size, draw_text, \
     crop_expanded_plate
 
-
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_source", type=str, default="data/samples/test_samples/xe4.jpg",
@@ -150,12 +149,24 @@ if __name__ == '__main__':
         cv2.imwrite("data/result.jpg", result)
     else:
         cap = cv2.VideoCapture(opts.input_source)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        os.makedirs("data", exist_ok=True)
+        input_basename = os.path.splitext(os.path.basename(opts.input_source))[0]
+        output_path = os.path.join("data", f"result_{input_basename}.mp4")
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+        print(f"Saving output video to: {output_path}")
+
         while cap.isOpened():
             ret, frame = cap.read()
             if ret:
                 lp_recognizer.vehicles = []
                 image = frame.copy()
                 image = lp_recognizer(image)
+                writer.write(image)
                 cv2.imshow("Test ALPR", set_hd_resolution(image))
                 del image
 
@@ -163,4 +174,5 @@ if __name__ == '__main__':
             if key == ord('q'): # Quit video
                 break
         cap.release()
-        cv2.destroyAllWindows()
+        writer.release()
+        cv2.destroyAllWindows().
