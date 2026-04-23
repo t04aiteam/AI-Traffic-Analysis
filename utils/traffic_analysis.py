@@ -71,6 +71,7 @@ class TrafficAnalysisService:
         self.deepsort: bool = bool(getattr(self.opts, "deepsort", False))
         self.dsort_weight: str = str(getattr(self.opts, "dsort_weight", "weights/tracking/deepsort/ckpt.t7"))
         self.vehicles: Dict[int, Vehicle] = {}
+        self.current_frame_ids: List[int] = []
         self._init_tracker()
 
         # Misc
@@ -116,6 +117,7 @@ class TrafficAnalysisService:
         else:
             self.tracker = Sort()
         self.vehicles = {}
+        self.current_frame_ids = []
 
     def reset(self) -> None:
         self._init_tracker()
@@ -248,6 +250,8 @@ class TrafficAnalysisService:
                     )
                 except Exception:
                     continue
+
+            self.current_frame_ids = in_frame_ids.copy()
         # Plate recognition
         if self.read_plate and in_frame_ids:
             active: List[Vehicle] = []

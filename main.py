@@ -128,9 +128,12 @@ async def predict_image(file: UploadFile = File(...)):
         # Process frame (without drawing)
         _ = traffic_service.process_frame(img)
         
-        # Extract detections
+        # Extract only tracks updated on this frame so clients do not render stale boxes.
         detections = []
-        for track_id, vehicle in traffic_service.vehicles.items():
+        for track_id in traffic_service.current_frame_ids:
+            vehicle = traffic_service.vehicles.get(track_id)
+            if vehicle is None or vehicle.bbox_xyxy is None:
+                continue
             bbox_xyxy = vehicle.bbox_xyxy
             
             detection = VehicleDetection(
