@@ -23,3 +23,4 @@ seaborn
 shapely
 pyclipper
 imgaug
+fast-plate-ocr[onnx]
