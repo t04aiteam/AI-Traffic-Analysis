@@ -49,7 +49,9 @@ CFG = SimpleNamespace(
     yolo_device=os.environ.get("YOLO_DEVICE", "cpu"),
     # fast-plate-ocr device: "cpu", "cuda" or "auto" (picks onnxruntime providers)
     ocr_device=os.environ.get("OCR_DEVICE", "auto"),
-    imgsz=int(os.environ.get("PLATE_IMGSZ", "640")),
+    # 1280 (not the weight's native 640) so small plates in wide/overhead frames
+    # still survive downscaling and get detected; override via PLATE_IMGSZ.
+    imgsz=int(os.environ.get("PLATE_IMGSZ", "1280")),
     pconf=float(os.environ.get("PLATE_CONF", "0.25")),
     expand_ratio=float(os.environ.get("PLATE_EXPAND", "0.15")),
 )
