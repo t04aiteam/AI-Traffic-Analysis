@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 import torch
 from ultralytics import YOLO
-from paddleocr import PaddleOCR
 
 from tracking.deep_sort import DeepSort
 from tracking.sort import Sort
@@ -54,17 +53,8 @@ class TrafficAnalysisService:
 
         # OCR
         self.read_plate = bool(getattr(self.opts, "read_plate", True))
-        ocr_kwargs = dict(
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_textline_orientation=False,
-        )
-        try:
-            if "use_gpu" in inspect.signature(PaddleOCR.__init__).parameters:
-                ocr_kwargs["use_gpu"] = self._is_cuda
-        except (ValueError, TypeError):
-            pass
-        self.ocr = PaddleOCR(**ocr_kwargs)
+        self.ocr_engine_name = str(getattr(self.opts, "ocr_engine", "paddle")).strip().lower()
+        self._init_ocr_engine()
         self.ocr_thres: float = float(getattr(self.opts, "ocr_thres", 0.9))
 
         # Tracking
@@ -127,18 +117,68 @@ class TrafficAnalysisService:
         # reset tracker state so IDs restart for the new model
         self.reset()
 
-    def _extract_plate_text(self, plate_image):
+    def _init_ocr_engine(self) -> None:
+        engine = self.ocr_engine_name
+        if engine == "paddle":
+            from paddleocr import PaddleOCR
+            ocr_kwargs = dict(
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+                use_textline_orientation=False,
+            )
+            try:
+                if "use_gpu" in inspect.signature(PaddleOCR.__init__).parameters:
+                    ocr_kwargs["use_gpu"] = self._is_cuda
+            except (ValueError, TypeError):
+                pass
+            self.ocr = PaddleOCR(**ocr_kwargs)
+            self._ocr_predict = self._ocr_predict_paddle
+        elif engine in ("fpo", "fast-plate-ocr", "fastplateocr"):
+            from fast_plate_ocr import LicensePlateRecognizer
+            model_name = str(getattr(self.opts, "fpo_model", "cct-s-v2-global-model"))
+            device = "cuda" if self._is_cuda else "cpu"
+            self.ocr = LicensePlateRecognizer(model_name, device=device)
+            self._ocr_predict = self._ocr_predict_fpo
+        else:
+            raise ValueError(f"Unknown OCR_ENGINE: {engine!r} (expected 'paddle' or 'fpo')")
+
+    def _ocr_predict_paddle(self, plate_image):
         results = self.ocr.predict(input=plate_image)
         if len(results) > 0:
             plate_info = " ".join(results[0].get("rec_texts", []))
             rec_scores = results[0].get("rec_scores", [])
             conf_val = sum(rec_scores) / len(rec_scores) if rec_scores else 0.0
-            plate_info = re.sub(r"[^A-Za-z0-9\-.]", "", plate_info)
-            if plate_info and len(plate_info) > 2 and plate_info[0].isalpha() and plate_info[2] == 'C':
-                plate_info = plate_info[:2] + '0' + plate_info[3:]
             return plate_info, conf_val
-        else:
+        return "", 0.0
+
+    def _ocr_predict_fpo(self, plate_image):
+        if plate_image is None or plate_image.size == 0:
             return "", 0.0
+        # fast-plate-ocr expects RGB ndarray; pipeline gives BGR
+        if plate_image.ndim == 3 and plate_image.shape[2] == 3:
+            img = cv2.cvtColor(plate_image, cv2.COLOR_BGR2RGB)
+        else:
+            img = plate_image
+        preds = self.ocr.run(img, return_confidence=True)
+        if not preds:
+            return "", 0.0
+        first = preds[0]
+        text = getattr(first, "plate", "") or ""
+        probs = getattr(first, "char_probs", None)
+        if probs is not None and len(probs) > 0 and len(text) > 0:
+            conf = float(np.mean(probs[: len(text)]))
+        else:
+            conf = 0.0
+        return text, conf
+
+    def _extract_plate_text(self, plate_image):
+        plate_info, conf_val = self._ocr_predict(plate_image)
+        if not plate_info:
+            return "", 0.0
+        plate_info = re.sub(r"[^A-Za-z0-9\-.]", "", plate_info)
+        if plate_info and len(plate_info) > 2 and plate_info[0].isalpha() and plate_info[2] == 'C':
+            plate_info = plate_info[:2] + '0' + plate_info[3:]
+        return plate_info, conf_val
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         if frame is None or frame.size == 0:
@@ -281,7 +321,7 @@ class TrafficAnalysisService:
                 detections = self.plate_detector(
                     crops,
                     verbose=False,
-                    imgsz=320,
+                    imgsz=640,
                     device=self.opts.device,
                     conf=self.opts.pconf,
                 )
