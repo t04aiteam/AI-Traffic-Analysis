@@ -1,0 +1,30 @@
+[project]
+name = "ai-traffic-analysis"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "ultralytics",
+    "opencv-python-headless",
+    "numpy",
+    "aiortc",
+    "easydict",
+    "onnx",
+    "onnxruntime",
+    "filterpy",
+    "scikit-learn",
+    "scikit-image",
+    "matplotlib",
+    "tqdm",
+    "pandas",
+    "seaborn",
+    "shapely",
+    "pyclipper",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+]

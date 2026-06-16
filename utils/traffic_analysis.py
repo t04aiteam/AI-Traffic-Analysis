@@ -390,3 +390,40 @@ class TrafficAnalysisService:
     def process_image(self, img: np.ndarray) -> np.ndarray:
         self.reset()
         return self.process_frame(img)
+
+    def detect_vehicles_only(self, frame: np.ndarray) -> np.ndarray:
+        if frame is None or frame.size == 0:
+            return frame
+
+        annotated = frame.copy()
+        detection = self.vehicle_detector(
+            frame,
+            verbose=False,
+            imgsz=640,
+            device=self.opts.device,
+            conf=self.opts.vconf,
+        )[0]
+
+        label_lookup = VEHICLES.get(self.lang, VEHICLES.get("en", []))
+
+        for box in detection.boxes:
+            xyxy = box.xyxy[0].cpu().numpy().astype(int)
+            x1, y1, x2, y2 = xyxy
+            conf = float(box.conf[0])
+            cls_idx = int(box.cls[0])
+            try:
+                label = map_label(cls_idx, label_lookup)
+            except Exception:
+                label = str(cls_idx)
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(
+                annotated,
+                f"{label} {conf:.2f}",
+                (x1, max(y1 - 5, 0)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2,
+            )
+
+        return annotated
