@@ -4,12 +4,16 @@ Traffic AI Service - FastAPI Backend for License Plate Recognition
 """
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import cv2
+import io
 import numpy as np
+from datetime import datetime
 from types import SimpleNamespace
 import os
+import zipfile
 
 from utils.traffic_analysis import TrafficAnalysisService
 
@@ -262,6 +266,55 @@ async def get_config():
         "read_plate": traffic_service.read_plate,
         "language": traffic_service.lang
     }
+
+
+@app.post("/predict/batch")
+async def predict_batch(files: List[UploadFile] = File(...)):
+    """
+    Detect vehicles in one or more images and return annotated output.
+
+    Single image: returns image/jpeg.
+    Multiple images: returns application/zip with one annotated JPEG per input file.
+    Invalid files are skipped; if all files are invalid, returns HTTP 400.
+    """
+    results: list[tuple[str, bytes]] = []
+
+    for upload in files:
+        contents = await upload.read()
+        nparr = np.frombuffer(contents, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame is None:
+            continue
+        try:
+            annotated = traffic_service.detect_vehicles_only(frame)
+            ok, buf = cv2.imencode(".jpg", annotated)
+            if not ok:
+                continue
+            name = upload.filename or f"image_{len(results)}.jpg"
+            if not name.lower().endswith((".jpg", ".jpeg")):
+                base = name.rsplit(".", 1)[0] if "." in name else name
+                name = base + ".jpg"
+            results.append((name, buf.tobytes()))
+        except Exception:
+            continue
+
+    if not results:
+        raise HTTPException(status_code=400, detail="No valid images in batch")
+
+    if len(results) == 1:
+        return StreamingResponse(io.BytesIO(results[0][1]), media_type="image/jpeg")
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in results:
+            zf.writestr(name, data)
+    zip_buf.seek(0)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return StreamingResponse(
+        zip_buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="annotated_{ts}.zip"'},
+    )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,8 @@
 import cv2
+import io
 import numpy as np
+import pytest
+import zipfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -86,3 +89,73 @@ class TestDetectVehiclesOnly:
         out = svc.detect_vehicles_only(frame)
         # Pixels drawn by cv2.rectangle differ from the black input
         assert not np.array_equal(out, frame)
+
+
+# ---------------------------------------------------------------------------
+# Integration: POST /predict/batch
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def client():
+    import main
+    # Replace the real service method with a no-op that returns the frame unchanged
+    main.traffic_service.detect_vehicles_only = MagicMock(side_effect=lambda f: f)
+    from fastapi.testclient import TestClient
+    return TestClient(main.app)
+
+
+class TestPredictBatch:
+    def test_single_valid_image_returns_jpeg(self, client):
+        jpeg = _black_jpeg()
+        resp = client.post(
+            "/predict/batch",
+            files=[("files", ("img.jpg", jpeg, "image/jpeg"))],
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/jpeg"
+        # Response must be a valid JPEG
+        arr = np.frombuffer(resp.content, np.uint8)
+        decoded = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        assert decoded is not None
+
+    def test_multiple_valid_images_returns_zip(self, client):
+        jpeg = _black_jpeg()
+        files = [
+            ("files", ("a.jpg", jpeg, "image/jpeg")),
+            ("files", ("b.jpg", jpeg, "image/jpeg")),
+        ]
+        resp = client.post("/predict/batch", files=files)
+        assert resp.status_code == 200
+        assert "zip" in resp.headers["content-type"]
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            assert len(zf.namelist()) == 2
+            assert "a.jpg" in zf.namelist()
+            assert "b.jpg" in zf.namelist()
+
+    def test_all_invalid_files_returns_400(self, client):
+        resp = client.post(
+            "/predict/batch",
+            files=[("files", ("bad.jpg", b"not_an_image", "image/jpeg"))],
+        )
+        assert resp.status_code == 400
+
+    def test_mixed_valid_and_invalid_skips_bad_file(self, client):
+        jpeg = _black_jpeg()
+        files = [
+            ("files", ("good.jpg", jpeg, "image/jpeg")),
+            ("files", ("bad.jpg", b"not_an_image", "image/jpeg")),
+        ]
+        resp = client.post("/predict/batch", files=files)
+        # 1 valid file → jpeg, not zip
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/jpeg"
+
+    def test_zip_filename_contains_annotated(self, client):
+        jpeg = _black_jpeg()
+        files = [
+            ("files", ("x.jpg", jpeg, "image/jpeg")),
+            ("files", ("y.jpg", jpeg, "image/jpeg")),
+        ]
+        resp = client.post("/predict/batch", files=files)
+        disposition = resp.headers.get("content-disposition", "")
+        assert "annotated_" in disposition
