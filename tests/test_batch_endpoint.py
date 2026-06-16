@@ -97,11 +97,24 @@ class TestDetectVehiclesOnly:
 
 @pytest.fixture()
 def client():
-    import main
-    # Replace the real service method with a no-op that returns the frame unchanged
-    main.traffic_service.detect_vehicles_only = MagicMock(side_effect=lambda f: f)
-    from fastapi.testclient import TestClient
-    return TestClient(main.app)
+    import sys
+    from utils.traffic_analysis import TrafficAnalysisService
+
+    # Force re-import of main under patches so module-level TrafficAnalysisService()
+    # call doesn't try to load real weights from disk.
+    sys.modules.pop("main", None)
+    with (
+        patch("utils.traffic_analysis.YOLO"),
+        patch("utils.traffic_analysis.Sort"),
+        patch("utils.traffic_analysis.DeepSort"),
+        patch.object(TrafficAnalysisService, "_init_ocr_engine"),
+        patch.object(TrafficAnalysisService, "_init_sr_engine"),
+    ):
+        import main
+        main.traffic_service.detect_vehicles_only = MagicMock(side_effect=lambda f: f)
+        from fastapi.testclient import TestClient
+        yield TestClient(main.app)
+    sys.modules.pop("main", None)
 
 
 class TestPredictBatch:
