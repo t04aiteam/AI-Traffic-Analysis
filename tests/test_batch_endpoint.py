@@ -139,7 +139,7 @@ class TestPredictBatch:
         ]
         resp = client.post("/predict/batch", files=files)
         assert resp.status_code == 200
-        assert "zip" in resp.headers["content-type"]
+        assert resp.headers["content-type"] == "application/zip"
         with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
             assert len(zf.namelist()) == 2
             assert "a.jpg" in zf.namelist()

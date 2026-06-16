@@ -9,11 +9,14 @@ from pydantic import BaseModel
 from typing import List, Optional
 import cv2
 import io
+import logging
 import numpy as np
-from datetime import datetime
-from types import SimpleNamespace
 import os
 import zipfile
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+logger = logging.getLogger(__name__)
 
 from utils.traffic_analysis import TrafficAnalysisService
 
@@ -290,12 +293,14 @@ async def predict_batch(files: List[UploadFile] = File(...)):
             ok, buf = cv2.imencode(".jpg", annotated)
             if not ok:
                 continue
-            name = upload.filename or f"image_{len(results)}.jpg"
-            if not name.lower().endswith((".jpg", ".jpeg")):
-                base = name.rsplit(".", 1)[0] if "." in name else name
-                name = base + ".jpg"
-            results.append((name, buf.tobytes()))
-        except Exception:
+            # Sanitise filename: basename only prevents zip-slip path traversal
+            raw_name = os.path.basename(upload.filename or "") or f"image_{len(results)}.jpg"
+            if not raw_name.lower().endswith((".jpg", ".jpeg")):
+                base = raw_name.rsplit(".", 1)[0] if "." in raw_name else raw_name
+                raw_name = base + ".jpg"
+            results.append((raw_name, buf.tobytes()))
+        except Exception as e:
+            logger.warning("Skipping %s: %s", upload.filename, e)
             continue
 
     if not results:
@@ -305,11 +310,15 @@ async def predict_batch(files: List[UploadFile] = File(...)):
         return StreamingResponse(io.BytesIO(results[0][1]), media_type="image/jpeg")
 
     zip_buf = io.BytesIO()
+    seen: dict[str, int] = {}
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name, data in results:
-            zf.writestr(name, data)
+        for raw_name, data in results:
+            n = seen.get(raw_name, 0)
+            seen[raw_name] = n + 1
+            entry = raw_name if n == 0 else f"{raw_name.rsplit('.', 1)[0]}_{n}.jpg"
+            zf.writestr(entry, data)
     zip_buf.seek(0)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return StreamingResponse(
         zip_buf,
         media_type="application/zip",
