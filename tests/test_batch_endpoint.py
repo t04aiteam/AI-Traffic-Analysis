@@ -1,9 +1,5 @@
-import io
-import zipfile
-
 import cv2
 import numpy as np
-import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -70,6 +66,7 @@ class TestDetectVehiclesOnly:
         out = svc.detect_vehicles_only(frame)
         assert isinstance(out, np.ndarray)
         assert out.shape == frame.shape
+        assert out is not frame
 
     def test_detection_draws_onto_frame(self):
         svc = _make_service()
