@@ -173,6 +173,7 @@ python client_example.py --video path/to/video.mp4
 │  │ traffic_       │   Core Processing Logic              │
 │  │  analysis.py   │   - Vehicle Detection (YOLO)         │
 │  │                │   - Plate Detection (YOLO)           │
+│  │                │   - Super-Resolution (optional SR)   │
 │  │                │   - OCR (PaddleOCR)                  │
 │  │                │   - Tracking (SORT/DeepSORT)         │
 │  └────────────────┘                                      │
@@ -255,6 +256,11 @@ export OCR_THRESHOLD=0.9       # OCR confidence threshold (0.0-1.0)
 
 # Tracking
 export USE_DEEPSORT=false      # Use DeepSORT (true) or SORT (false)
+
+# Super-resolution (plate crop, applied before OCR)
+export SR_ENGINE=none          # Options: none (default), bicubic (zero-dep baseline), realesrgan (needs `uv pip install realesrgan basicsr`), lcofl (stub, needs VN retrain). Cascade: only runs on low-confidence plates.
+export SR_SCALE=2              # Upscale factor (default: 2)
+export REALESRGAN_WEIGHT=      # Optional path to Real-ESRGAN weights (realesrgan engine only)
 
 # Language
 export LANG=en                 # Options: en, vi, es, fr

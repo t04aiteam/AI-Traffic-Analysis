@@ -42,6 +42,9 @@ opts = SimpleNamespace(
     ocr_thres=float(os.environ.get("OCR_THRESHOLD", "0.9")),
     ocr_engine=os.environ.get("OCR_ENGINE", "paddle").strip().lower(),
     fpo_model=os.environ.get("FPO_MODEL", "cct-s-v2-global-model"),
+    sr_engine=os.environ.get("SR_ENGINE", "none").strip().lower(),
+    sr_scale=int(os.environ.get("SR_SCALE", "2")),
+    realesrgan_weight=os.environ.get("REALESRGAN_WEIGHT", None),
     device=DEFAULT_DEVICE,
     deepsort=os.environ.get("USE_DEEPSORT", "false").lower() == "true",
     read_plate=True,
@@ -253,6 +256,8 @@ async def get_config():
         "plate_confidence": traffic_service.opts.pconf,
         "ocr_threshold": traffic_service.ocr_thres,
         "ocr_engine": getattr(traffic_service, "ocr_engine_name", "paddle"),
+        "sr_engine": getattr(traffic_service, "sr_engine_name", "none"),
+        "sr_scale": getattr(traffic_service, "sr_scale", 2),
         "use_deepsort": traffic_service.deepsort,
         "read_plate": traffic_service.read_plate,
         "language": traffic_service.lang

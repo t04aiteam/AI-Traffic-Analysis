@@ -57,6 +57,11 @@ class TrafficAnalysisService:
         self._init_ocr_engine()
         self.ocr_thres: float = float(getattr(self.opts, "ocr_thres", 0.9))
 
+        # Super-resolution (optional, applied to plate crop before OCR)
+        self.sr_engine_name = str(getattr(self.opts, "sr_engine", "none")).strip().lower()
+        self.sr_scale = int(getattr(self.opts, "sr_scale", 2))
+        self._init_sr_engine()
+
         # Tracking
         self.deepsort: bool = bool(getattr(self.opts, "deepsort", False))
         self.dsort_weight: str = str(getattr(self.opts, "dsort_weight", "weights/tracking/deepsort/ckpt.t7"))
@@ -170,6 +175,15 @@ class TrafficAnalysisService:
         else:
             conf = 0.0
         return text, conf
+
+    def _init_sr_engine(self) -> None:
+        from utils.sr import create_sr_engine
+        self.sr_engine = create_sr_engine(
+            self.sr_engine_name,
+            device=str(self.opts.device),
+            scale=self.sr_scale,
+            realesrgan_weight=getattr(self.opts, "realesrgan_weight", None),
+        )
 
     def _extract_plate_text(self, plate_image):
         plate_info, conf_val = self._ocr_predict(plate_image)
@@ -348,7 +362,13 @@ class TrafficAnalysisService:
                     with_plate.append(v)
 
                 for v in with_plate:
-                    text, conf = self._extract_plate_text(v.plate_image)
+                    ocr_input = v.plate_image
+                    if self.sr_engine is not None and v.ocr_conf < self.ocr_thres:
+                        try:
+                            ocr_input = self.sr_engine.enhance(v.plate_image)
+                        except Exception:
+                            ocr_input = v.plate_image
+                    text, conf = self._extract_plate_text(ocr_input)
                     if conf > v.ocr_conf:
                         v.plate_number = text
                         v.ocr_conf = conf
