@@ -12,6 +12,7 @@ import io
 import logging
 import numpy as np
 import os
+import pathlib
 import zipfile
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -272,18 +273,20 @@ async def get_config():
 
 
 @app.post("/predict/batch")
-async def predict_batch(files: List[UploadFile] = File(...)):
+def predict_batch(files: List[UploadFile] = File(...)):
     """
     Detect vehicles in one or more images and return annotated output.
 
     Single image: returns image/jpeg.
     Multiple images: returns application/zip with one annotated JPEG per input file.
     Invalid files are skipped; if all files are invalid, returns HTTP 400.
+    FastAPI runs plain `def` handlers in a threadpool, keeping the event loop free
+    during blocking YOLO inference.
     """
     results: list[tuple[str, bytes]] = []
 
     for upload in files:
-        contents = await upload.read()
+        contents = upload.file.read()
         nparr = np.frombuffer(contents, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if frame is None:
@@ -293,8 +296,13 @@ async def predict_batch(files: List[UploadFile] = File(...)):
             ok, buf = cv2.imencode(".jpg", annotated)
             if not ok:
                 continue
-            # Sanitise filename: basename only prevents zip-slip path traversal
-            raw_name = os.path.basename(upload.filename or "") or f"image_{len(results)}.jpg"
+            # Sanitise filename: PurePosixPath strips both / and \ traversal sequences
+            raw_name = (
+                pathlib.PurePosixPath(
+                    (upload.filename or "").replace("\\", "/")
+                ).name
+                or f"image_{len(results)}.jpg"
+            )
             if not raw_name.lower().endswith((".jpg", ".jpeg")):
                 base = raw_name.rsplit(".", 1)[0] if "." in raw_name else raw_name
                 raw_name = base + ".jpg"

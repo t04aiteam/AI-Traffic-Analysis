@@ -22,13 +22,13 @@ dependencies = [
     "seaborn",
     "shapely",
     "pyclipper",
+    "python-multipart>=0.0.32",
 ]
 
 [tool.uv]
 dev-dependencies = [
     "httpx2>=2.4.0",
     "pytest",
-    "python-multipart>=0.0.32",
 ]
 
 [tool.pytest.ini_options]

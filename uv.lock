@@ -39,6 +39,7 @@ dependencies = [
     { name = "pandas", version = "3.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pyclipper" },
     { name = "pydantic" },
+    { name = "python-multipart" },
     { name = "scikit-image", version = "0.25.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scikit-image", version = "0.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -54,7 +55,6 @@ dependencies = [
 dev = [
     { name = "httpx2" },
     { name = "pytest" },
-    { name = "python-multipart" },
 ]
 
 [package.metadata]
@@ -71,6 +71,7 @@ requires-dist = [
     { name = "pandas" },
     { name = "pyclipper" },
     { name = "pydantic" },
+    { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "scikit-image" },
     { name = "scikit-learn" },
     { name = "seaborn" },
@@ -84,7 +85,6 @@ requires-dist = [
 dev = [
     { name = "httpx2", specifier = ">=2.4.0" },
     { name = "pytest" },
-    { name = "python-multipart", specifier = ">=0.0.32" },
 ]
 
 [[package]]
