@@ -1,0 +1,46 @@
+{
+  "notebook": {
+    "id": "310ccde0-1ca0-4717-98d9-b5577dbb4731",
+    "title": "AIML-lowres-VN-LPR-20260608",
+    "url": "https://notebooklm.google.com/notebook/310ccde0-1ca0-4717-98d9-b5577dbb4731",
+    "sources_ingested": 18,
+    "sources_failed_crawl": 1,
+    "date": "2026-06-08"
+  },
+  "metrics": [
+    {"method": "OCR on LR (degraded)", "dataset": "RodoSol-ALPR", "metric": "full-plate acc", "value": "1.1%", "partial_6": "5.3%", "partial_5": "14.3%", "verification_status": "VERIFIED", "source": "arXiv 2408.15103"},
+    {"method": "LR+SR PLNET", "dataset": "RodoSol-ALPR", "metric": "full-plate acc", "value": "39.0%", "partial_6": "59.9%", "partial_5": "74.2%", "verification_status": "VERIFIED", "source": "arXiv 2408.15103"},
+    {"method": "LR+SR SR3 (diffusion)", "dataset": "RodoSol-ALPR", "metric": "full-plate acc", "value": "43.1%", "partial_6": "67.5%", "partial_5": "82.2%", "verification_status": "VERIFIED", "source": "arXiv 2408.15103"},
+    {"method": "LR+SR LCOFL (proposed)", "dataset": "RodoSol-ALPR", "metric": "full-plate acc", "value": "49.8%", "partial_6": "71.2%", "partial_5": "83.3%", "verification_status": "VERIFIED", "source": "arXiv 2408.15103"},
+    {"method": "LR+SR LCOFL", "dataset": "Real-world LR-HR (3723 pairs)", "metric": "full-plate acc", "value": "39.5%", "baseline_LR": "9.9%", "SR3": "31.7%", "PLNET": "36.3%", "verification_status": "VERIFIED", "source": "arXiv 2408.15103"},
+    {"method": "Bicubic LR baseline", "dataset": "UFPR-SR-Plates", "metric": "full-plate acc", "value": "1.7%", "verification_status": "VERIFIED", "source": "arXiv 2505.06393"},
+    {"method": "LCDNet (SR)", "dataset": "UFPR-SR-Plates", "metric": "full-plate acc", "value": "31.1%", "verification_status": "VERIFIED", "source": "arXiv 2505.06393"},
+    {"method": "LCDNet + MVCP (vote 5 imgs)", "dataset": "UFPR-SR-Plates", "metric": "full-plate acc", "value": "44.7%", "verification_status": "VERIFIED", "source": "arXiv 2505.06393"},
+    {"method": "Diffusion SR", "dataset": "Saudi plates", "metric": "PSNR improvement vs SwinIR/ESRGAN", "value": "+12.55% / +37.32%", "ssim_improvement": "+4.89% / +17.66%", "note": "no absolute PSNR/SSIM dB reported", "verification_status": "VERIFIED", "source": "arXiv 2309.12506"},
+    {"method": "Probabilistic multitask (SR+LPR)", "dataset": "synthetic noisy/blur LR", "metric": "recognition improvement", "value": "+109%", "verification_status": "VERIFIED", "source": "arXiv 2302.01427"},
+    {"method": "SSD512+HC (Holistic-CNN)", "dataset": "CCPD-Blur", "metric": "full-plate acc", "value": "25.83%", "ccpd_base": "43.42%", "fps": 11, "verification_status": "VERIFIED", "source": "detectRecog/CCPD"},
+    {"method": "YOLOv3-320", "dataset": "CCPD detection", "metric": "FPS / AP", "value": "52 FPS / AP 87.23", "verification_status": "VERIFIED", "source": "detectRecog/CCPD"},
+    {"method": "trocr-base-printed", "dataset": "license-plate-text-recognition (clean)", "metric": "CER", "value": "0.0368", "verification_status": "VERIFIED", "source": "DunnBC22 HF", "note": "biển sạch, không low-res"},
+    {"method": "fast-plate-ocr cct-xs-v1", "dataset": "n/a", "metric": "latency / throughput", "value": "0.3232 ms / 3094 PPS", "hw": "RTX 3090, b=1", "verification_status": "VERIFIED", "source": "ankandrew/fast-plate-ocr"},
+    {"method": "YOLOv11x", "dataset": "Roboflow license-plate (CONTAMINATED)", "metric": "mAP@50", "value": "0.9813", "verification_status": "VERIFIED_BUT_CONTAMINATED", "source": "morsetechlab HF", "note": "train/test leakage tự thú → metric thổi phồng"},
+    {"method": "YOLOv5m", "dataset": "keremberke license-plate", "metric": "mAP@0.5", "value": "0.988", "verification_status": "NBLM_ONLY", "source": "keremberke HF", "note": "self-reported"},
+    {"method": "SR LCOFL inference", "metric": "speed", "value": "~1.75 FPS (38min/4k imgs)", "hw": "Quadro RTX 8000", "verification_status": "VERIFIED", "source": "arXiv 2408.15103"},
+    {"method": "SR3 diffusion inference", "metric": "speed", "value": "~0.03 FPS (33h/4k imgs, 52x slower)", "verification_status": "VERIFIED", "source": "arXiv 2408.15103"},
+    {"method": "Jetson Nano ALPR (SSD-Mobilenet-v1)", "metric": "FPS", "value": "40 FPS", "verification_status": "VERIFIED", "source": "winter2897", "note": "edge target, VN data"},
+    {"method": "TATSR", "metric": "recognition accuracy", "value": "NOT_FOUND", "verification_status": "HALLUCINATED_EXCLUDED", "source": "arXiv 2210.06924", "note": "chỉ abstract định tính, không số → loại khỏi báo cáo số"}
+  ],
+  "licenses": {
+    "fast-alpr": "MIT", "fast-plate-ocr": "MIT", "mrzaizai2k": "MIT(repo)/YOLOv7=GPL-3.0",
+    "CCPD": "MIT", "lpsr-lacd-code": "UNKNOWN", "RodoSol-SR-data": "NON-COMMERCIAL-ACADEMIC",
+    "openalpr": "AGPL-3.0", "morsetechlab-yolov11": "AGPL-3.0", "keremberke-yolov5m": "UNKNOWN(YOLOv5=AGPL)",
+    "DunnBC22-trocr": "MIT+base", "hezarai-crnn-fa": "UNKNOWN(Persian)"
+  },
+  "low_res_error_modes_verified": ["B<->8", "G<->6/0", "T<->7", "S<->5", "2<->Z", "R<->B"],
+  "key_install_commands": {
+    "fast-alpr": "pip install fast-alpr[onnx-gpu]",
+    "fast-plate-ocr": "pip install fast-plate-ocr[onnx-gpu]",
+    "keremberke": "pip install yolov5",
+    "openalpr": "sudo apt-get install -y openalpr openalpr-utils libopenalpr-dev",
+    "lpsr-lacd-train": "python3 ParallelNetTrain.py --config ./config/Sibgrapi_ablation/cgnetV2_deformable_test.yaml --save True"
+  }
+}

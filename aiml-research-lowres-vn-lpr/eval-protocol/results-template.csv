@@ -1,0 +1,6 @@
+config_id,pipeline,dataset,n_samples,gpu,batch,precision,full_plate_acc,partial_ge6,partial_ge5,char_acc,psnr,ssim,detect_map50,fps,notes
+C0,detect+bicubic+ocr,VN-holdout,,,1,fp16,,,,,,,,,baseline
+C1,detect+ocr_nosr,VN-holdout,,,1,fp16,,,,,,,,,no-SR
+C2,detect+LCOFL+ocr,VN-holdout,,,1,fp16,,,,,,,,,SOTA
+C3,detect+SR3+ocr,VN-holdout,,,1,fp16,,,,,,,,,slow
+C4,detect+LCOFL+ocr+MVCP,VN-video,,,1,fp16,,,,,,,,,vote5frames
