@@ -84,6 +84,23 @@ class PredictionResponse(BaseModel):
     frame_count: Optional[int] = None
 
 
+class OCRResult(BaseModel):
+    text: str
+    confidence: float
+
+
+class PlateDetectionResult(BaseModel):
+    bbox: BoundingBox
+    confidence: float
+    fpo: OCRResult
+    ppocr: OCRResult
+
+
+class PlatesImageResult(BaseModel):
+    filename: str
+    plates: List[PlateDetectionResult]
+
+
 class HealthResponse(BaseModel):
     status: str
     device: str
@@ -332,6 +349,49 @@ def predict_batch(files: List[UploadFile] = File(...)):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="annotated_{ts}.zip"'},
     )
+
+
+@app.post("/predict/plates/batch", response_model=List[PlatesImageResult])
+def predict_plates_batch(files: List[UploadFile] = File(...)):
+    """
+    Detect license plates in one or more images and return dual-OCR text.
+
+    Each detected plate crop is run through both fast-plate-ocr and PPOCRv6-medium.
+    Returns JSON array — one entry per input image. Invalid images return empty plates
+    list rather than failing the whole request. Both OCR engines are lazily initialised
+    on the first call, so the first request will be slower.
+    """
+    output: list[PlatesImageResult] = []
+    for upload in files:
+        contents = upload.file.read()
+        nparr = np.frombuffer(contents, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        raw_name = (
+            pathlib.PurePosixPath(
+                (upload.filename or "").replace("\\", "/")
+            ).name or f"image_{len(output)}"
+        )
+        if frame is None:
+            output.append(PlatesImageResult(filename=raw_name, plates=[]))
+            continue
+        try:
+            raw = traffic_service.detect_plates_dual_ocr(frame)
+            plates = [
+                PlateDetectionResult(
+                    bbox=BoundingBox(**p["bbox"]),
+                    confidence=p["confidence"],
+                    fpo=OCRResult(**p["fpo"]),
+                    ppocr=OCRResult(**p["ppocr"]),
+                )
+                for p in raw
+            ]
+        except Exception as e:
+            logger.warning("Skipping %s: %s", upload.filename, e)
+            plates = []
+        output.append(PlatesImageResult(filename=raw_name, plates=plates))
+    if not output:
+        raise HTTPException(status_code=400, detail="No files provided")
+    return output
 
 
 if __name__ == "__main__":

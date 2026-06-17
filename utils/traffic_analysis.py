@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 import re
 import inspect
+import threading
 
 import cv2
 import numpy as np
@@ -61,6 +62,12 @@ class TrafficAnalysisService:
         self.sr_engine_name = str(getattr(self.opts, "sr_engine", "none")).strip().lower()
         self.sr_scale = int(getattr(self.opts, "sr_scale", 2))
         self._init_sr_engine()
+
+        # Dual OCR engines (lazy-init on first call to detect_plates_dual_ocr)
+        self._dual_ocr_lock = threading.Lock()
+        self._dual_fpo = None
+        self._dual_ppocr = None
+        self._dual_ocr_ready = False
 
         # Tracking
         self.deepsort: bool = bool(getattr(self.opts, "deepsort", False))
@@ -429,3 +436,82 @@ class TrafficAnalysisService:
             )
 
         return annotated
+
+    def _ensure_dual_ocr(self) -> None:
+        if self._dual_ocr_ready:
+            return
+        with self._dual_ocr_lock:
+            if self._dual_ocr_ready:
+                return
+            from fast_plate_ocr import LicensePlateRecognizer
+            device = "cuda" if self._is_cuda else "cpu"
+            model_name = str(getattr(self.opts, "fpo_model", "cct-s-v2-global-model"))
+            self._dual_fpo = LicensePlateRecognizer(model_name, device=device)
+            import os as _os
+            _os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+            from paddleocr import PaddleOCR
+            self._dual_ppocr = PaddleOCR(
+                text_detection_model_name="PP-OCRv6_medium_det",
+                text_recognition_model_name="PP-OCRv6_medium_rec",
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+                use_textline_orientation=False,
+            )
+            self._dual_ocr_ready = True
+
+    def _ocr_plates_fpo(self, crop: np.ndarray) -> tuple:
+        if crop.ndim == 3 and crop.shape[2] == 3:
+            img = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+        else:
+            img = crop
+        preds = self._dual_fpo.run(img, return_confidence=True)
+        if not preds:
+            return "", 0.0
+        first = preds[0]
+        text = getattr(first, "plate", "") or ""
+        probs = getattr(first, "char_probs", None)
+        if probs is not None and len(probs) > 0 and len(text) > 0:
+            conf = float(np.mean(probs[: len(text)]))
+        else:
+            conf = 0.0
+        return text, conf
+
+    def _ocr_plates_ppocr(self, crop: np.ndarray) -> tuple:
+        results = self._dual_ppocr.predict(input=crop)
+        if results:
+            texts = results[0].get("rec_texts", [])
+            scores = results[0].get("rec_scores", [])
+            text = " ".join(texts)
+            conf = float(sum(scores) / len(scores)) if scores else 0.0
+            return text, conf
+        return "", 0.0
+
+    def detect_plates_dual_ocr(self, frame: np.ndarray) -> list:
+        """Detect plates and run FPO + PPOCRv6-medium on each crop."""
+        if frame is None or frame.size == 0:
+            return []
+        self._ensure_dual_ocr()
+        detection = self.plate_detector(
+            frame,
+            verbose=False,
+            imgsz=320,
+            device=self.opts.device,
+            conf=self.opts.pconf,
+        )[0]
+        results = []
+        for box in detection.boxes:
+            xyxy = box.xyxy[0].cpu().numpy().astype(int)
+            x1, y1, x2, y2 = xyxy
+            conf = float(box.conf[0])
+            crop = frame[max(0, y1) : y2, max(0, x1) : x2]
+            if crop.size == 0:
+                continue
+            fpo_text, fpo_conf = self._ocr_plates_fpo(crop)
+            ppocr_text, ppocr_conf = self._ocr_plates_ppocr(crop)
+            results.append({
+                "bbox": {"x1": int(x1), "y1": int(y1), "x2": int(x2), "y2": int(y2)},
+                "confidence": conf,
+                "fpo": {"text": fpo_text, "confidence": fpo_conf},
+                "ppocr": {"text": ppocr_text, "confidence": ppocr_conf},
+            })
+        return results
