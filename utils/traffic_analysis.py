@@ -151,11 +151,23 @@ class TrafficAnalysisService:
             device = "cuda" if self._is_cuda else "cpu"
             self.ocr = LicensePlateRecognizer(model_name, device=device)
             self._ocr_predict = self._ocr_predict_fpo
+        elif engine in ("ppv6", "ppocr-v6", "ppocrv6", "ppocr_v6"):
+            import os as _os
+            _os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+            from paddleocr import PaddleOCR
+            self.ocr = PaddleOCR(
+                text_detection_model_name="PP-OCRv6_medium_det",
+                text_recognition_model_name="PP-OCRv6_medium_rec",
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+                use_textline_orientation=False,
+            )
+            self._ocr_predict = self._ocr_predict_paddle
         elif engine == "none":
             self.ocr = None
             self._ocr_predict = lambda img: ("", 0.0)
         else:
-            raise ValueError(f"Unknown OCR_ENGINE: {engine!r} (expected 'paddle', 'fpo', or 'none')")
+            raise ValueError(f"Unknown OCR_ENGINE: {engine!r} (expected 'paddle', 'ppv6', 'fpo', or 'none')")
 
     def _ocr_predict_paddle(self, plate_image):
         results = self.ocr.predict(input=plate_image)
