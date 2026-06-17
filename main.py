@@ -391,7 +391,7 @@ def predict_plates_batch(files: List[UploadFile] = File(...)):
                 fpo_conf = p["fpo"]["confidence"]
                 ppo_text = p["ppocr"]["text"] or "-"
                 ppo_conf = p["ppocr"]["confidence"]
-                label1 = f"FPO: {fpo_text} ({fpo_conf:.2f})"
+                label1 = f"FAST: {fpo_text} ({fpo_conf:.2f})"
                 label2 = f"PPO: {ppo_text} ({ppo_conf:.2f})"
                 cy = max(y1 - 22, 0)
                 cv2.putText(annotated, label1, (x1, cy),
