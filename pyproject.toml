@@ -23,6 +23,7 @@ dependencies = [
     "shapely",
     "pyclipper",
     "python-multipart>=0.0.32",
+    "dill>=0.4.1",
 ]
 
 [tool.uv]

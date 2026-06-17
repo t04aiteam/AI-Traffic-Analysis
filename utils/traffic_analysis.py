@@ -144,8 +144,10 @@ class TrafficAnalysisService:
             device = "cuda" if self._is_cuda else "cpu"
             self.ocr = LicensePlateRecognizer(model_name, device=device)
             self._ocr_predict = self._ocr_predict_fpo
+        elif engine == "none":
+            self.ocr = None
         else:
-            raise ValueError(f"Unknown OCR_ENGINE: {engine!r} (expected 'paddle' or 'fpo')")
+            raise ValueError(f"Unknown OCR_ENGINE: {engine!r} (expected 'paddle', 'fpo', or 'none')")
 
     def _ocr_predict_paddle(self, plate_image):
         results = self.ocr.predict(input=plate_image)
