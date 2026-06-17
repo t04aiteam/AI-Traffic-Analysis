@@ -153,6 +153,7 @@ class TrafficAnalysisService:
             self._ocr_predict = self._ocr_predict_fpo
         elif engine == "none":
             self.ocr = None
+            self._ocr_predict = lambda img: ("", 0.0)
         else:
             raise ValueError(f"Unknown OCR_ENGINE: {engine!r} (expected 'paddle', 'fpo', or 'none')")
 
