@@ -351,17 +351,21 @@ def predict_batch(files: List[UploadFile] = File(...)):
     )
 
 
-@app.post("/predict/plates/batch", response_model=List[PlatesImageResult])
+@app.post("/predict/plates/batch")
 def predict_plates_batch(files: List[UploadFile] = File(...)):
     """
-    Detect license plates in one or more images and return dual-OCR text.
+    Detect license plates in one or more images and return annotated output.
 
-    Each detected plate crop is run through both fast-plate-ocr and PPOCRv6-medium.
-    Returns JSON array — one entry per input image. Invalid images return empty plates
-    list rather than failing the whole request. Both OCR engines are lazily initialised
-    on the first call, so the first request will be slower.
+    Each plate crop is run through fast-plate-ocr and PPOCRv6-medium. The
+    full image is returned annotated with plate bboxes and both OCR results
+    as text labels.
+
+    Single image → image/jpeg. Multiple images → application/zip.
+    Invalid images are skipped; all invalid → HTTP 400.
+    Both OCR engines are lazily initialised on the first call.
     """
-    output: list[PlatesImageResult] = []
+    results: list[tuple[str, bytes]] = []
+
     for upload in files:
         contents = upload.file.read()
         nparr = np.frombuffer(contents, np.uint8)
@@ -369,29 +373,60 @@ def predict_plates_batch(files: List[UploadFile] = File(...)):
         raw_name = (
             pathlib.PurePosixPath(
                 (upload.filename or "").replace("\\", "/")
-            ).name or f"image_{len(output)}"
+            ).name or f"image_{len(results)}.jpg"
         )
+        if not raw_name.lower().endswith((".jpg", ".jpeg")):
+            base = raw_name.rsplit(".", 1)[0] if "." in raw_name else raw_name
+            raw_name = base + ".jpg"
         if frame is None:
-            output.append(PlatesImageResult(filename=raw_name, plates=[]))
             continue
         try:
-            raw = traffic_service.detect_plates_dual_ocr(frame)
-            plates = [
-                PlateDetectionResult(
-                    bbox=BoundingBox(**p["bbox"]),
-                    confidence=p["confidence"],
-                    fpo=OCRResult(**p["fpo"]),
-                    ppocr=OCRResult(**p["ppocr"]),
-                )
-                for p in raw
-            ]
+            plates = traffic_service.detect_plates_dual_ocr(frame)
+            annotated = frame.copy()
+            for p in plates:
+                b = p["bbox"]
+                x1, y1, x2, y2 = b["x1"], b["y1"], b["x2"], b["y2"]
+                cv2.rectangle(annotated, (x1, y1), (x2, y2), (255, 100, 0), 2)
+                fpo_text = p["fpo"]["text"] or "-"
+                fpo_conf = p["fpo"]["confidence"]
+                ppo_text = p["ppocr"]["text"] or "-"
+                ppo_conf = p["ppocr"]["confidence"]
+                label1 = f"FPO: {fpo_text} ({fpo_conf:.2f})"
+                label2 = f"PPO: {ppo_text} ({ppo_conf:.2f})"
+                cy = max(y1 - 22, 0)
+                cv2.putText(annotated, label1, (x1, cy),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 100, 0), 2)
+                cv2.putText(annotated, label2, (x1, max(cy - 18, 0)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 100, 0), 2)
+            ok, buf = cv2.imencode(".jpg", annotated)
+            if not ok:
+                continue
+            results.append((raw_name, buf.tobytes()))
         except Exception as e:
             logger.warning("Skipping %s: %s", upload.filename, e)
-            plates = []
-        output.append(PlatesImageResult(filename=raw_name, plates=plates))
-    if not output:
-        raise HTTPException(status_code=400, detail="No files provided")
-    return output
+            continue
+
+    if not results:
+        raise HTTPException(status_code=400, detail="No valid images in batch")
+
+    if len(results) == 1:
+        return StreamingResponse(io.BytesIO(results[0][1]), media_type="image/jpeg")
+
+    zip_buf = io.BytesIO()
+    seen: dict[str, int] = {}
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for raw_name, data in results:
+            n = seen.get(raw_name, 0)
+            seen[raw_name] = n + 1
+            entry = raw_name if n == 0 else f"{raw_name.rsplit('.', 1)[0]}_{n}.jpg"
+            zf.writestr(entry, data)
+    zip_buf.seek(0)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return StreamingResponse(
+        zip_buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="plates_{ts}.zip"'},
+    )
 
 
 if __name__ == "__main__":
