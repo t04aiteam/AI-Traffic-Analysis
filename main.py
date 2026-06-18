@@ -13,6 +13,7 @@ import logging
 import numpy as np
 import os
 import pathlib
+import tempfile
 import zipfile
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -479,6 +480,59 @@ def predict_plates_multiframe(
         "fast": fast,
         "ppocr": ppocr,
     }
+
+
+def _read_video_frames(data: bytes):
+    """Decode video bytes into a list of BGR frames via a temp file."""
+    frames = []
+    with tempfile.NamedTemporaryFile(suffix=".mp4") as tmp:
+        tmp.write(data)
+        tmp.flush()
+        cap = cv2.VideoCapture(tmp.name)
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            frames.append(frame)
+        cap.release()
+    return frames
+
+
+@app.post("/predict/plates/video")
+def predict_plates_video(
+    file: UploadFile = File(...),
+    engine: str = "mflpr2",
+    scale: int = 2,
+    min_frames: int = 8,
+    max_frames: int = 32,
+):
+    """Detect+track plates across a video, fuse each track's burst, dual-OCR."""
+    if engine not in ("mflpr2", "eott"):
+        raise HTTPException(status_code=400, detail=f"unknown engine: {engine!r}")
+    data = file.file.read()
+    frames = _read_video_frames(data)
+    if not frames:
+        raise HTTPException(status_code=400, detail="could not decode video")
+
+    bursts = traffic_service.collect_plate_bursts(
+        frames, min_frames=min_frames, max_frames=max_frames)
+
+    results = []
+    for track_id, crops in bursts.items():
+        crops = resize_burst_to_common(crops)
+        try:
+            restored = fusion_fuse(crops, engine=engine, scale=scale)
+        except FusionUnavailable as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        fast, ppocr = _dual_ocr(restored)
+        results.append({
+            "track_id": int(track_id),
+            "n_frames": len(crops),
+            "engine": engine,
+            "fast": fast,
+            "ppocr": ppocr,
+        })
+    return results
 
 
 if __name__ == "__main__":
