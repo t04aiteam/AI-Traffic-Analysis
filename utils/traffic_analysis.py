@@ -520,7 +520,10 @@ class TrafficAnalysisService:
             if len(boxes) == 0:
                 continue
             try:
-                outputs = self.tracker.update(boxes.cpu().xyxy).astype(int)
+                if self.deepsort:
+                    outputs = self.tracker.update(boxes.cpu().xywh, boxes.cpu().conf, frame)
+                else:
+                    outputs = self.tracker.update(boxes.cpu().xyxy).astype(int)
             except Exception:
                 continue
             if len(outputs) == 0:
