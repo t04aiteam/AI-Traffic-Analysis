@@ -20,6 +20,8 @@ from types import SimpleNamespace
 logger = logging.getLogger(__name__)
 
 from utils.traffic_analysis import TrafficAnalysisService
+from utils.fusion_client import fuse as fusion_fuse, FusionUnavailable
+from utils.plate_burst import resize_burst_to_common, select_burst_window
 
 # Initialize FastAPI
 app = FastAPI(
@@ -427,6 +429,56 @@ def predict_plates_batch(files: List[UploadFile] = File(...)):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="plates_{ts}.zip"'},
     )
+
+
+def _decode_uploads(files):
+    """Decode a list of UploadFile into BGR ndarrays (skips undecodable)."""
+    crops = []
+    for up in files:
+        data = up.file.read()
+        arr = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+        if arr is not None:
+            crops.append(arr)
+    return crops
+
+
+def _dual_ocr(crop):
+    """Run this repo's FAST + PPOCRv6 OCR on a BGR crop -> two OCRResult dicts."""
+    traffic_service._ensure_dual_ocr()
+    fpo_text, fpo_conf = traffic_service._ocr_plates_fpo(crop)
+    ppo_text, ppo_conf = traffic_service._ocr_plates_ppocr(crop)
+    return (
+        {"text": fpo_text, "confidence": float(fpo_conf)},
+        {"text": ppo_text, "confidence": float(ppo_conf)},
+    )
+
+
+@app.post("/predict/plates/multiframe")
+def predict_plates_multiframe(
+    files: List[UploadFile] = File(...),
+    engine: str = "mflpr2",
+    scale: int = 2,
+    max_frames: int = 32,
+):
+    """Fuse a burst of one plate's crops, then dual-OCR the restored plate."""
+    if engine not in ("mflpr2", "eott"):
+        raise HTTPException(status_code=400, detail=f"unknown engine: {engine!r}")
+    crops = _decode_uploads(files)
+    if not crops:
+        raise HTTPException(status_code=400, detail="no valid plate crops")
+    crops = select_burst_window(crops, max_frames)
+    crops = resize_burst_to_common(crops)
+    try:
+        restored = fusion_fuse(crops, engine=engine, scale=scale)
+    except FusionUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    fast, ppocr = _dual_ocr(restored)
+    return {
+        "engine": engine,
+        "frames_used": len(crops),
+        "fast": fast,
+        "ppocr": ppocr,
+    }
 
 
 if __name__ == "__main__":
