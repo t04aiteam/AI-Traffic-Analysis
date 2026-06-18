@@ -499,6 +499,69 @@ class TrafficAnalysisService:
             return text, conf
         return "", 0.0
 
+    def collect_plate_bursts(self, frames, min_frames=8, max_frames=32):
+        """Group per-track plate crops across frames.
+
+        frames: list of BGR ndarrays (already decoded video frames).
+        Returns {track_id: [plate_crop_bgr, ...]} keeping only tracks with
+        >= min_frames crops, each capped to max_frames evenly-spaced crops.
+        """
+        from utils.plate_burst import select_burst_window
+
+        buckets = {}
+        for frame in frames:
+            if frame is None or frame.size == 0:
+                continue
+            det = self.vehicle_detector(
+                frame, verbose=False, imgsz=640,
+                device=self.opts.device, conf=self.opts.vconf,
+            )[0]
+            boxes = det.boxes
+            if len(boxes) == 0:
+                continue
+            try:
+                outputs = self.tracker.update(boxes.cpu().xyxy).astype(int)
+            except Exception:
+                continue
+            if len(outputs) == 0:
+                continue
+
+            # crop each tracked vehicle, batch-detect plates
+            tids, vcrops = [], []
+            for i in range(len(outputs)):
+                tid = int(outputs[i, -1])
+                x1, y1, x2, y2 = outputs[i, :4]
+                vcrop = frame[max(y1, 0):max(y2, 0), max(x1, 0):max(x2, 0), :]
+                if vcrop.size == 0:
+                    continue
+                tids.append(tid)
+                vcrops.append(vcrop)
+            if not vcrops:
+                continue
+
+            pdets = self.plate_detector(
+                vcrops, verbose=False, imgsz=640,
+                device=self.opts.device, conf=self.opts.pconf,
+            )
+            for idx, pdet in enumerate(pdets):
+                plate_xyxy = pdet.boxes.xyxy
+                if len(plate_xyxy) < 1:
+                    continue
+                pxyxy = plate_xyxy[0].cpu().numpy().astype(int)
+                try:
+                    plate_crop = crop_expanded_plate(pxyxy, vcrops[idx], 0.15)
+                except Exception:
+                    continue
+                if plate_crop is None or plate_crop.size == 0:
+                    continue
+                buckets.setdefault(tids[idx], []).append(plate_crop)
+
+        return {
+            tid: select_burst_window(crops, max_frames)
+            for tid, crops in buckets.items()
+            if len(crops) >= min_frames
+        }
+
     def detect_plates_dual_ocr(self, frame: np.ndarray) -> list:
         """Detect plates and run FPO + PPOCRv6-medium on each crop."""
         if frame is None or frame.size == 0:
