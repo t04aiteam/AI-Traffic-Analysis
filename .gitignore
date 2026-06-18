@@ -141,4 +141,6 @@ runs
 *.sh
 lib_pponnxcr
 test*
+!tests/
+!tests/**
 webapp/rtsp_url.json
