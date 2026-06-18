@@ -1,0 +1,32 @@
+[project]
+name = "fusion-svc"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "python-multipart>=0.0.9",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pillow>=9.0",
+    "opencv-python>=4.8",
+    "mf-lpr2",
+    "eott",
+]
+
+[tool.uv.sources]
+mf-lpr2 = { path = "../../mf-lpr2", editable = true }
+eott = { path = "../../eott", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fusion_svc"]
+
+[tool.uv]
+dev-dependencies = ["pytest>=7.4", "httpx>=0.27"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

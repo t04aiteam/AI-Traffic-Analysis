@@ -38,3 +38,6 @@ dev-dependencies = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# fusion_svc/ is a self-contained uv subproject with its own venv (mf-lpr2/eott);
+# it has its own test suite — exclude it from the parent run.
+addopts = "--ignore=fusion_svc"
