@@ -1,9 +1,17 @@
 import cv2
 import numpy as np
+from eott import Config
 from fastapi.testclient import TestClient
 from fusion_svc.app import app
 
 client = TestClient(app)
+
+
+def _eott_expected_shape():
+    cfg = Config()
+    w, h = cfg.hr_size  # (width, height)
+    mx, my = int(w * cfg.crop_margin), int(h * cfg.crop_margin)
+    return (h - 2 * my, w - 2 * mx, 3)
 
 
 def _png_bytes(h=32, w=96, val=200):
@@ -31,10 +39,11 @@ def test_fuse_mflpr2_returns_png():
 
 
 def test_fuse_eott_returns_png():
-    r = client.post("/fuse?engine=eott&scale=2", files=_files())
+    r = client.post("/fuse?engine=eott", files=_files())
     assert r.status_code == 200
     arr = cv2.imdecode(np.frombuffer(r.content, np.uint8), cv2.IMREAD_COLOR)
-    assert arr is not None and arr.shape == (64, 192, 3)
+    # eott returns the native binarized plate on a fixed hr grid (scale ignored)
+    assert arr is not None and arr.shape == _eott_expected_shape()
 
 
 def test_fuse_unknown_engine_400():

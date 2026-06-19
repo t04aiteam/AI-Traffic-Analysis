@@ -458,7 +458,7 @@ def _dual_ocr(crop):
 def predict_plates_multiframe(
     files: List[UploadFile] = File(...),
     engine: str = "mflpr2",
-    scale: int = 2,
+    scale: int = 1,
     max_frames: int = 32,
 ):
     """Fuse a burst of one plate's crops, then dual-OCR the restored plate."""
@@ -502,7 +502,7 @@ def _read_video_frames(data: bytes):
 def predict_plates_video(
     file: UploadFile = File(...),
     engine: str = "mflpr2",
-    scale: int = 2,
+    scale: int = 1,
     min_frames: int = 8,
     max_frames: int = 32,
 ):

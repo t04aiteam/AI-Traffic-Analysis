@@ -19,7 +19,7 @@ def _png_bytes(arr: np.ndarray) -> bytes:
     return buf.tobytes()
 
 
-def fuse(crops, engine="mflpr2", scale=2, base_url=None, timeout=60.0):
+def fuse(crops, engine="mflpr2", scale=1, base_url=None, timeout=60.0):
     """POST PNG-encoded BGR crops to fusion-svc; return decoded BGR restored plate."""
     if not crops:
         raise ValueError("fuse requires at least one crop")

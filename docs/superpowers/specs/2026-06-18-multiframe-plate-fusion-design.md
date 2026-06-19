@@ -242,6 +242,18 @@ restored crops and OCR text vs single-frame baseline.
 - Splitting fusion-svc into two services (only if deps conflict).
 - Using the fusion repos' own OCR backends.
 
+## Deferred / Maybe
+
+- **Fusion-only OCR variant.** The dual-OCR method `_ocr_plates_ppocr`
+  (`utils/traffic_analysis.py`) is shared by `/predict/plates/batch` and the
+  fusion endpoints. If we ever want to align the fusion OCR call to a native
+  repo's PaddleOCR invocation (`.ocr()` vs `.predict()`, `""`-join, RGB-in)
+  without changing `/predict/plates/batch` output, split out a fusion-only OCR
+  variant (or add a flag) instead of mutating the shared method. Not done yet —
+  noted as a maybe. See the "align everything but OCR" work, which aligns the
+  restore/reconstruct steps only and intentionally leaves OCR on this repo's
+  shared dual-OCR.
+
 ## Sequencing
 
 1. fusion-svc (`/fuse`, both adapters, unit tests) — independently testable with curl.

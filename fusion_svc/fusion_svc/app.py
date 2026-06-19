@@ -28,7 +28,7 @@ def health():
 def fuse(
     files: list[UploadFile] = File(...),
     engine: str = Query("mflpr2"),
-    scale: int = Query(2, ge=1, le=8),
+    scale: int = Query(1, ge=1, le=8),
 ):
     if engine not in _ENGINES:
         raise HTTPException(status_code=400, detail=f"unknown engine: {engine!r}")
