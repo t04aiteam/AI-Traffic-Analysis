@@ -12,8 +12,20 @@ over localhost HTTP (`utils/fusion_client.py`), so its heavy deps stay isolated.
 
 | engine | source repo | notes |
 |--------|-------------|-------|
-| `mflpr2` | `../../mf-lpr2` | training-free restore (arXiv 2508.14797); cleaner default |
-| `eott`   | `../../eott`    | reconstruction-only path; fast |
+| `mflpr2` | `external/mf-lpr2` | training-free restore (arXiv 2508.14797); cleaner default |
+| `eott`   | `external/eott`    | reconstruction-only path; fast |
+
+The two engine repos are vendored as **git submodules** under `external/`
+(pinned commits), so a fresh clone is self-contained.
+
+## Setup
+
+```bash
+# Submodules must be present (fresh clone):
+git submodule update --init --recursive       # or: git clone --recurse-submodules ...
+
+uv sync --directory fusion_svc                # builds the venv + editable engines
+```
 
 ## Run
 

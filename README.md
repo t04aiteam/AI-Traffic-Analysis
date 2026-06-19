@@ -430,11 +430,17 @@ The sidecar lives in `fusion_svc/` as a self-contained `uv` subproject with
 its own `.venv` (depends on `mf-lpr2` and `eott`, image-only — no torch/paddle).
 The main app never imports it; it calls over HTTP, so dependency isolation is
 preserved. `utils/fusion_client.py` is the client (`FUSION_URL`, default
-`http://127.0.0.1:8100`).
+`http://127.0.0.1:8100`). The `mf-lpr2` and `eott` engines are vendored as git
+submodules under `fusion_svc/external/` — a fresh clone needs
+`git submodule update --init --recursive` (or `git clone --recurse-submodules`).
 
 ### Running
 
 ```bash
+# 0. Fresh clone only: fetch the engine submodules + build the sidecar venv
+git submodule update --init --recursive
+uv sync --directory fusion_svc
+
 # 1. Start the fusion sidecar
 uv run --directory fusion_svc uvicorn fusion_svc.app:app --port 8100
 

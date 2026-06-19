@@ -71,7 +71,7 @@ wheels = [
 [[package]]
 name = "eott"
 version = "0.1.0"
-source = { editable = "../../eott" }
+source = { editable = "external/eott" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -144,9 +144,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eott", editable = "../../eott" },
+    { name = "eott", editable = "external/eott" },
     { name = "fastapi", specifier = ">=0.110" },
-    { name = "mf-lpr2", editable = "../../mf-lpr2" },
+    { name = "mf-lpr2", editable = "external/mf-lpr2" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "opencv-python", specifier = ">=4.8" },
     { name = "pillow", specifier = ">=9.0" },
@@ -219,7 +219,7 @@ wheels = [
 [[package]]
 name = "mf-lpr2"
 version = "0.1.0"
-source = { editable = "../../mf-lpr2" }
+source = { editable = "external/mf-lpr2" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },

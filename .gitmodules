@@ -1,0 +1,6 @@
+[submodule "fusion_svc/external/mf-lpr2"]
+	path = fusion_svc/external/mf-lpr2
+	url = git@github.com:NBaLogn/mf-lpr2.git
+[submodule "fusion_svc/external/eott"]
+	path = fusion_svc/external/eott
+	url = git@github.com:NBaLogn/eott.git
