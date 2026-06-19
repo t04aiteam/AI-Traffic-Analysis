@@ -24,6 +24,7 @@
   - [Configuration](#configuration)
   - [API Endpoints](#api-endpoints)
   - [Usage Examples](#usage-examples)
+- [Multi-Frame Plate Fusion](#multi-frame-plate-fusion)
 - [Training Models](#training-models)
 - [Model Zoo](#model-zoo)
 - [Model Weights](#model-weights)
@@ -278,8 +279,14 @@ export PORT=7862
 | `/health` | GET | Health check and configuration status |
 | `/predict/image` | POST | Process single image (resets tracking) |
 | `/predict/frame` | POST | Process video frame (maintains tracking) |
+| `/predict/batch` | POST | Vehicle-detect N images → annotated JPEG (1) or ZIP (N) |
+| `/predict/plates/batch` | POST | Plate-detect N images, dual-OCR (FAST + PPOCRv6) → annotated JPEG/ZIP |
+| `/predict/plates/multiframe` | POST | Fuse a burst of one plate's crops → dual-OCR the restored plate |
+| `/predict/plates/video` | POST | Detect+track plates in a video, fuse each track's burst, dual-OCR |
 | `/reset` | POST | Reset tracker state |
 | `/config` | GET | Get current configuration |
+
+> `/predict/plates/multiframe` and `/predict/plates/video` require the **fusion sidecar** running (see [Multi-Frame Plate Fusion](#multi-frame-plate-fusion)).
 
 ### Response Format
 
@@ -400,6 +407,67 @@ python client_example.py --video path/to/video.mp4 --max-frames 100
 # Get configuration
 python client_example.py --config
 ```
+
+---
+
+## Multi-Frame Plate Fusion
+
+Low-resolution plates are often illegible in any single frame. The fusion
+feature takes a **burst of crops of the same plate** (8–32 frames), merges
+them into one restored plate, then runs dual-OCR (FAST + PPOCRv6).
+
+### Architecture
+
+Two cooperating localhost services:
+
+```
+main API (7862) ──HTTP──> fusion sidecar (8100)
+  detect/track plate         merge N crops → 1 restored plate (BGR PNG)
+  dual-OCR restored plate    engines: mflpr2 (mf-lpr2), eott
+```
+
+The sidecar lives in `fusion_svc/` as a self-contained `uv` subproject with
+its own `.venv` (depends on `mf-lpr2` and `eott`, image-only — no torch/paddle).
+The main app never imports it; it calls over HTTP, so dependency isolation is
+preserved. `utils/fusion_client.py` is the client (`FUSION_URL`, default
+`http://127.0.0.1:8100`).
+
+### Running
+
+```bash
+# 1. Start the fusion sidecar
+uv run --directory fusion_svc uvicorn fusion_svc.app:app --port 8100
+
+# 2. Start the main API (separate shell)
+uv run uvicorn main:app --port 7862
+```
+
+### Endpoints
+
+```bash
+# Multiframe: send N crops of ONE plate
+curl -X POST "http://localhost:7862/predict/plates/multiframe?engine=mflpr2&scale=2" \
+  -F "files=@01.png" -F "files=@02.png" ...   # -> {engine, frames_used, fast, ppocr}
+
+# Video: detect+track plates, fuse each track's burst automatically
+curl -X POST "http://localhost:7862/predict/plates/video?engine=mflpr2" \
+  -F "file=@clip.mp4"                          # -> [{track_id, n_frames, fast, ppocr}, ...]
+```
+
+Params: `engine` (`mflpr2` | `eott`), `scale` (upscale factor, default 2),
+`max_frames` (default 32), `min_frames` (video only, default 8).
+
+### Benchmark notes (RLPR sample plates, 31 crops/plate)
+
+- **Quality is gated by input crop legibility, not the fusion engine.** A
+  high-contrast burst → PPOCRv6 near-perfect; a ~30px illegible burst →
+  fusion sharpens but OCR still misses.
+- **PPOCRv6 ≫ FAST** on these plates.
+- **`mflpr2` vs `eott`:** `mflpr2` restores cleaner; `eott` occasionally edges
+  it on OCR of already-legible bursts. Default to `mflpr2`.
+- **Do NOT pre-apply super-resolution before fusion.** Feeding SR'd frames
+  clips highlights and *degrades* OCR (8→0 flips observed), and is 8–40×
+  slower. mf-lpr2/eott already upscale — fuse **raw** crops.
 
 ---
 
