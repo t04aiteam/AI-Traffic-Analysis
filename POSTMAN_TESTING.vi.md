@@ -1,0 +1,156 @@
+# Kiểm thử API Traffic AI bằng Postman
+
+Hướng dẫn từng bước cho QA/tester. Không cần lập trình. API là service FastAPI
+trong [`main.py`](main.py) (xem [`API.md`](API.md) để tham khảo cho dev). Có
+**10 endpoint** cho phát hiện xe/biển số, theo dõi (tracking) và OCR biển số.
+
+> Hai endpoint — `POST /predict/plates/multiframe` và `POST /predict/plates/video`
+> — cần **fusion sidecar** chạy ở cổng `8100`
+> (xem [`fusion_svc/POSTMAN_TESTING.vi.md`](fusion_svc/POSTMAN_TESTING.vi.md)). 8
+> endpoint còn lại chạy không cần nó.
+
+Bạn có thể **import collection dựng sẵn** (nhanh nhất) hoặc tự tạo request bằng
+tay. Cả hai đều được hướng dẫn.
+
+---
+
+## 1. Import collection (khuyến nghị)
+
+1. Trong Postman: **File → Import** (hoặc nút **Import** ở góc trên bên trái).
+2. Chọn file **[`traffic-ai.postman_collection.json`](traffic-ai.postman_collection.json)**
+   từ repo này.
+3. Một collection **"Traffic AI Service API"** xuất hiện ở thanh bên trái với đầy
+   đủ request đã dựng sẵn.
+4. Đặt base URL một lần cho cả collection:
+   - Bấm vào tên collection → tab **Variables**.
+   - Đặt **`base_url`** ở cột Current Value thành server của bạn, ví dụ
+     `http://127.0.0.1:7862` (không có dấu `/` ở cuối). **Save** (Ctrl/Cmd-S).
+5. Với mỗi request có file, tự đính kèm lại file (Postman không lưu nội dung
+   file): mở request → **Body → form-data** → ở mỗi dòng `file`/`files` bấm
+   **Select Files** và chọn ảnh/video.
+
+Sau đó chuyển tới **§3 Các kịch bản kiểm thử**.
+
+---
+
+## 2. Tự tạo request bằng tay (nếu không import)
+
+Tạo một collection mới, thêm biến `base_url = http://127.0.0.1:7862`, rồi thêm các
+request bên dưới. URL dùng `{{base_url}}`.
+
+### 2a. Kiểm tra sức khoẻ — `GET {{base_url}}/health`
+
+Không có tham số. Bấm Send. Kỳ vọng `200` và JSON dạng:
+
+```json
+{ "status": "healthy", "device": "cuda:0", "models_loaded": true }
+```
+
+**Đây là bài test đầu tiên — nếu nó lỗi thì mọi thứ khác sẽ không chạy.**
+
+### 2b. Cấu hình — `GET {{base_url}}/config`
+
+Không có tham số. Trả về weights đang dùng, ngưỡng tin cậy, engine OCR + SR, ngôn ngữ.
+
+### 2c. Dự đoán ảnh — `POST {{base_url}}/predict/image`
+
+- Phương thức **POST**, URL `{{base_url}}/predict/image`.
+- Tab **Body** → **form-data** → Key = `file`, đổi kiểu _Text_ → **File**,
+  **Select Files** → chọn một ảnh đường phố.
+- Bấm Send. Trả về **JSON** với danh sách `detections`.
+
+> Tên trường là **`file`** (số ít) cho `image` / `frame` / `video`, nhưng
+> **`files`** (số nhiều) cho các endpoint `batch` / `plates/batch` / `multiframe`.
+
+---
+
+## 3. Các kịch bản kiểm thử
+
+Chạy theo thứ tự. "scene" = ảnh đường có xe/biển số; "crop" = ảnh cắt sát biển số.
+
+| #   | Endpoint | Body | Query | Kỳ vọng |
+| --- | -------- | ---- | ----- | ------- |
+| 1   | `GET /` | — | — | `200`, thông tin service + danh sách endpoint |
+| 2   | `GET /health` | — | — | `200`, `status:"healthy"` |
+| 3   | `GET /config` | — | — | `200`, weights/engine |
+| 4   | `POST /reset` | — | — | `200`, `{"status":"success"}` |
+| 5   | `POST /predict/image` | `file`=1 scene | — | `200`, `{detections:[...]}` |
+| 6   | `POST /predict/frame` | `file`=1 scene | `frame_number=7` | `200`, detections + `frame_count` |
+| 7   | `POST /predict/batch` | `files`=1 scene | — | `200`, **JPEG đã chú thích** |
+| 8   | `POST /predict/batch` | `files`=3 scene | — | `200`, **ZIP** chứa `*.jpg` |
+| 9   | `POST /predict/batch` | `files`=`.txt`/rác | — | **`400`**, `No valid images in batch` |
+| 10  | `POST /predict/plates/batch` | `files`=1 scene | — | `200`, **JPEG** có box biển + nhãn `FAST:`/`PPO:` |
+| 11  | `POST /predict/plates/multiframe` | `files`=3 crop | `engine=mflpr2&scale=2` | `200`, JSON `{engine,frames_used,fast,ppocr}` |
+| 12  | `POST /predict/plates/multiframe` | `files`=3 crop | `engine=eott` | `200`, JSON (gộp nhị phân + OCR) |
+| 13  | `POST /predict/plates/multiframe` | `files`=3 crop | `engine=bogus` | **`400`**, `unknown engine: 'bogus'` |
+| 14  | `POST /predict/plates/multiframe` | `files`=3 crop | (sidecar **đã tắt**) | **`503`**, `FusionUnavailable` |
+| 15  | `POST /predict/plates/video` | `file`=1 mp4 | `engine=mflpr2` | `200`, **danh sách** theo track `{track_id,...,fast,ppocr}` |
+
+### Phản hồi `/predict/image` (kịch bản 5) — cần kiểm tra gì
+
+```json
+{
+  "detections": [
+    { "track_id": 1,
+      "bbox": { "x1": 220.0, "y1": 200.0, "x2": 420.0, "y2": 400.0 },
+      "vehicle_type": "car", "license_plate": "51A12345",
+      "plate_bbox": { "x1": 290.0, "y1": 360.0, "x2": 360.0, "y2": 390.0 },
+      "confidence": 0.87 }
+  ]
+}
+```
+
+`license_plate`/`plate_bbox`/`confidence` có thể là `null` khi không đọc được biển.
+
+### `image` vs `frame`
+
+`image` **reset tracker** mỗi lần gọi (ảnh đơn, không trạng thái). `frame`
+**giữ** trạng thái tracking, nên `track_id` duy trì qua chuỗi ảnh — gọi
+`POST /reset` trước khi bắt đầu một clip không liên quan.
+
+---
+
+## 4. Xử lý phản hồi
+
+- **JSON** (`/`, `/health`, `/config`, `/reset`, `/predict/image`, `/predict/frame`,
+  `/predict/plates/multiframe`, `/predict/plates/video`): đọc trực tiếp ở khung
+  response.
+- **Ảnh** (`/predict/batch`, `/predict/plates/batch` với 1 file): tab **Preview**
+  hiển thị JPEG đã chú thích. Lưu qua **⋯ / Save Response → Save to a file** (`.jpg`).
+- **ZIP** (`batch`/`plates/batch` với >1 file): Postman không xem trước được.
+  **Save Response → Save to a file** đặt đuôi `.zip`; header `Content-Disposition`
+  mang tên gợi ý (`annotated_*.zip` / `plates_*.zip`).
+
+---
+
+## 5. Tham số cho từng request
+
+| Endpoint | Tham số | Kiểu | Ý nghĩa |
+| -------- | ------- | ---- | ------- |
+| `/predict/frame` | `frame_number` | int | số tham chiếu, trả lại trong `frame_count` |
+| `multiframe` / `video` | `engine` | `mflpr2`\|`eott` | engine gộp (mặc định `mflpr2`); `eott` xuất nhị phân |
+| `multiframe` / `video` | `scale` | int | hệ số phóng to — `mflpr2` áp dụng, **`eott` bỏ qua** |
+| `multiframe` / `video` | `max_frames` | int | giới hạn số crop/frame gộp (mặc định 32) |
+| `video` | `min_frames` | int | độ dài track tối thiểu để gộp (mặc định 8) |
+
+---
+
+## 6. Danh sách kiểm tra khi báo lỗi
+
+Khi thấy bất thường, ghi lại cho dev:
+
+- **Request**: endpoint, URL đầy đủ kèm query params, và file đã upload.
+- **Response**: mã trạng thái + body JSON (hoặc ảnh/zip đã lưu).
+- Output `GET /health` + `GET /config` (device, weights, engine OCR).
+- Kỳ vọng vs thực tế (ví dụ "bỏ sót xe", "đọc sai biển", "danh sách rỗng").
+
+Các kết quả **không phải lỗi** thường gặp:
+
+- `400 Invalid image file` / `No valid images in batch` → file không phải ảnh hợp lệ.
+- `400 unknown engine '...'` → `engine` phải là `mflpr2` hoặc `eott`.
+- `503 FusionUnavailable` → bật fusion sidecar ở `8100` trước.
+- `/predict/plates/video` trả về **`[]`** → không track biển nào đạt `min_frames`;
+  thử clip dài hơn hoặc giảm `min_frames`.
+- Request đầu tiên **chậm** → model đang khởi động (YOLO + OCR nạp lười); thử lại.
+- `track_id` reset giữa các frame → bạn đang gọi `/predict/image` (không trạng
+  thái). Dùng `/predict/frame` cho chuỗi ảnh.

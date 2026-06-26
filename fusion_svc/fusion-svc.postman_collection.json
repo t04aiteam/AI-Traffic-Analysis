@@ -1,0 +1,86 @@
+{
+  "info": {
+    "name": "fusion-svc API",
+    "description": "Plate-fusion sidecar: merge N crops of one license plate into a single restored plate (PNG). 2 endpoints: GET /health, POST /fuse. Set the collection variable base_url to your server. Re-attach files on each /fuse request (Postman does not store file contents).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8100", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+      }
+    },
+    {
+      "name": "Fuse - mflpr2 (scale=2)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "files", "type": "file", "src": [] },
+            { "key": "files", "type": "file", "src": [] }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/fuse?engine=mflpr2&scale=2",
+          "host": ["{{base_url}}"],
+          "path": ["fuse"],
+          "query": [
+            { "key": "engine", "value": "mflpr2" },
+            { "key": "scale", "value": "2" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Fuse - eott (scale ignored)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "files", "type": "file", "src": [] },
+            { "key": "files", "type": "file", "src": [] }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/fuse?engine=eott",
+          "host": ["{{base_url}}"],
+          "path": ["fuse"],
+          "query": [
+            { "key": "engine", "value": "eott" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Fuse - unknown engine (expect 400)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "files", "type": "file", "src": [] }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/fuse?engine=bogus",
+          "host": ["{{base_url}}"],
+          "path": ["fuse"],
+          "query": [
+            { "key": "engine", "value": "bogus" }
+          ]
+        }
+      }
+    }
+  ]
+}

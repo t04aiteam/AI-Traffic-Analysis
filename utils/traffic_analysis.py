@@ -137,6 +137,7 @@ class TrafficAnalysisService:
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
+                enable_mkldnn=False,  # oneDNN PIR path crashes on PP-OCRv6 (ConvertPirAttribute2RuntimeAttribute)
             )
             try:
                 if "use_gpu" in inspect.signature(PaddleOCR.__init__).parameters:
@@ -161,6 +162,7 @@ class TrafficAnalysisService:
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
+                enable_mkldnn=False,  # oneDNN PIR path crashes on PP-OCRv6 (ConvertPirAttribute2RuntimeAttribute)
             )
             self._ocr_predict = self._ocr_predict_paddle
         elif engine == "none":
@@ -469,6 +471,7 @@ class TrafficAnalysisService:
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
+                enable_mkldnn=False,  # oneDNN PIR path crashes on PP-OCRv6 (ConvertPirAttribute2RuntimeAttribute)
             )
             self._dual_ocr_ready = True
 

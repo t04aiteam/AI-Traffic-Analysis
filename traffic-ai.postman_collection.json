@@ -1,0 +1,108 @@
+{
+  "info": {
+    "name": "Traffic AI Service API",
+    "description": "Vehicle/plate detection, tracking, and license-plate OCR. 10 endpoints. Set the collection variable base_url to your server. Re-attach files on each request (Postman does not store file contents). The two /predict/plates/{multiframe,video} requests also need the fusion sidecar running on 8100.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:7862", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Root",
+      "request": { "method": "GET", "header": [],
+        "url": { "raw": "{{base_url}}/", "host": ["{{base_url}}"], "path": [""] } }
+    },
+    {
+      "name": "Health",
+      "request": { "method": "GET", "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] } }
+    },
+    {
+      "name": "Config",
+      "request": { "method": "GET", "header": [],
+        "url": { "raw": "{{base_url}}/config", "host": ["{{base_url}}"], "path": ["config"] } }
+    },
+    {
+      "name": "Reset tracker",
+      "request": { "method": "POST", "header": [],
+        "url": { "raw": "{{base_url}}/reset", "host": ["{{base_url}}"], "path": ["reset"] } }
+    },
+    {
+      "name": "Predict image (JSON detections)",
+      "request": {
+        "method": "POST", "header": [],
+        "body": { "mode": "formdata", "formdata": [ { "key": "file", "type": "file", "src": [] } ] },
+        "url": { "raw": "{{base_url}}/predict/image", "host": ["{{base_url}}"], "path": ["predict", "image"] }
+      }
+    },
+    {
+      "name": "Predict frame (keeps tracking)",
+      "request": {
+        "method": "POST", "header": [],
+        "body": { "mode": "formdata", "formdata": [ { "key": "file", "type": "file", "src": [] } ] },
+        "url": {
+          "raw": "{{base_url}}/predict/frame?frame_number=1",
+          "host": ["{{base_url}}"], "path": ["predict", "frame"],
+          "query": [ { "key": "frame_number", "value": "1" } ]
+        }
+      }
+    },
+    {
+      "name": "Predict batch (annotated, vehicles)",
+      "request": {
+        "method": "POST", "header": [],
+        "body": { "mode": "formdata", "formdata": [
+          { "key": "files", "type": "file", "src": [] },
+          { "key": "files", "type": "file", "src": [] }
+        ] },
+        "url": { "raw": "{{base_url}}/predict/batch", "host": ["{{base_url}}"], "path": ["predict", "batch"] }
+      }
+    },
+    {
+      "name": "Predict plates batch (annotated + OCR)",
+      "request": {
+        "method": "POST", "header": [],
+        "body": { "mode": "formdata", "formdata": [ { "key": "files", "type": "file", "src": [] } ] },
+        "url": { "raw": "{{base_url}}/predict/plates/batch", "host": ["{{base_url}}"], "path": ["predict", "plates", "batch"] }
+      }
+    },
+    {
+      "name": "Predict plates multiframe (fuse + OCR)",
+      "request": {
+        "method": "POST", "header": [],
+        "body": { "mode": "formdata", "formdata": [
+          { "key": "files", "type": "file", "src": [] },
+          { "key": "files", "type": "file", "src": [] },
+          { "key": "files", "type": "file", "src": [] }
+        ] },
+        "url": {
+          "raw": "{{base_url}}/predict/plates/multiframe?engine=mflpr2&scale=2",
+          "host": ["{{base_url}}"], "path": ["predict", "plates", "multiframe"],
+          "query": [
+            { "key": "engine", "value": "mflpr2" },
+            { "key": "scale", "value": "2" },
+            { "key": "max_frames", "value": "32", "disabled": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Predict plates video (track + fuse + OCR)",
+      "request": {
+        "method": "POST", "header": [],
+        "body": { "mode": "formdata", "formdata": [ { "key": "file", "type": "file", "src": [] } ] },
+        "url": {
+          "raw": "{{base_url}}/predict/plates/video?engine=mflpr2",
+          "host": ["{{base_url}}"], "path": ["predict", "plates", "video"],
+          "query": [
+            { "key": "engine", "value": "mflpr2" },
+            { "key": "scale", "value": "1", "disabled": true },
+            { "key": "min_frames", "value": "8", "disabled": true },
+            { "key": "max_frames", "value": "32", "disabled": true }
+          ]
+        }
+      }
+    }
+  ]
+}
