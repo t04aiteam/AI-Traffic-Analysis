@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Traffic AI Service API",
-    "description": "Vehicle/plate detection, tracking, and license-plate OCR. 10 endpoints. Set the collection variable base_url to your server. Re-attach files on each request (Postman does not store file contents). The two /predict/plates/{multiframe,video} requests also need the fusion sidecar running on 8100.",
+    "description": "Vehicle/plate detection, tracking, and license-plate OCR. 11 endpoints, all on one port (fusion runs in-process — no sidecar). Set the collection variable base_url to your server. Re-attach files on each request (Postman does not store file contents).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -100,6 +100,24 @@
             { "key": "scale", "value": "1", "disabled": true },
             { "key": "min_frames", "value": "8", "disabled": true },
             { "key": "max_frames", "value": "32", "disabled": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Fuse (restored plate image, no OCR)",
+      "request": {
+        "method": "POST", "header": [],
+        "body": { "mode": "formdata", "formdata": [
+          { "key": "files", "type": "file", "src": [] },
+          { "key": "files", "type": "file", "src": [] }
+        ] },
+        "url": {
+          "raw": "{{base_url}}/fuse?engine=mflpr2&scale=2",
+          "host": ["{{base_url}}"], "path": ["fuse"],
+          "query": [
+            { "key": "engine", "value": "mflpr2" },
+            { "key": "scale", "value": "2" }
           ]
         }
       }

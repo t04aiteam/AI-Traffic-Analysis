@@ -96,33 +96,32 @@ curl -X POST "http://127.0.0.1:8100/fuse?engine=eott" \
 curl http://127.0.0.1:8100/health        # {"status":"ok"}
 ```
 
-## Used by the main API (port 7862)
+## Relationship to the main API (port 7862)
 
-This sidecar is also consumed by the **main traffic API** (`main.py`, port
-`7862`) via [`utils/fusion_client.py`](../utils/fusion_client.py), which POSTs to
-`/fuse` here. Two main-API endpoints wrap this service and add **dual-OCR** on
-top of the fused plate:
+By default the engines here are **not run as a sidecar** — the main traffic API
+(`main.py`, port `7862`) installs the vendored `mf-lpr2` / `eott` packages into
+its own venv and calls these same adapters **in-process** through
+[`utils/fusion_client.py`](../utils/fusion_client.py). So `/fuse` and the
+OCR-wrapping endpoints all live on port 7862:
 
 | main endpoint | does | params |
 |---|---|---|
-| `POST /predict/plates/multiframe` | fuse a burst of one plate's crops → dual-OCR | `engine`, `scale`, `max_frames` (32) |
+| `POST /fuse` | fuse a burst of crops → restored plate **image** (same as this app) | `engine`, `scale` |
+| `POST /predict/plates/multiframe` | fuse a burst of one plate's crops → **dual-OCR** | `engine`, `scale`, `max_frames` (32) |
 | `POST /predict/plates/video` | detect+track plates in a video, fuse each track's burst → dual-OCR | `engine`, `scale`, `min_frames` (8), `max_frames` (32) |
 
 ```
-client ──HTTP──> main API (7862) ──HTTP──> fusion sidecar (8100) ──> mf-lpr2 / eott
+client ──HTTP──> main API (7862) ──in-process──> mf-lpr2 / eott   (default)
 ```
 
-Differences from calling `/fuse` directly:
+The `/predict/plates/*` variants also **resize the burst to a common size**
+(`resize_burst_to_common`) before fusing, then return **JSON OCR text**
+(`{engine, frames_used, fast, ppocr}`) instead of a PNG.
 
-- The main API **resizes the burst to a common size** (`resize_burst_to_common`)
-  before fusing, so the "same-size crops" constraint is handled upstream — you
-  can hand it differently-sized crops.
-- It returns **JSON OCR text** (`{engine, frames_used, fast, ppocr}`), not a PNG.
-- If this sidecar is down, the main API returns **`503`** (`FusionUnavailable`),
-  not a connection error.
-
-Both main endpoints require this sidecar running. See `README.md`
-§Multi-Frame Plate Fusion for the main-API curl examples.
+**This standalone app is optional** — run it on 8100 only if you want fusion in a
+separate process/venv (crash isolation, independent lifecycle). In that split
+mode, point the main API at it with `FUSION_URL` and have `fusion_client` POST
+over HTTP instead of importing the adapters.
 
 ## Test
 

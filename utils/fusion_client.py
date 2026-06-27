@@ -1,41 +1,33 @@
-"""HTTP client for the fusion-svc multi-frame restoration microservice."""
-import os
+"""In-process multi-frame plate restoration (fusion engines).
 
-import cv2
-import httpx
+Formerly an HTTP client to the fusion-svc sidecar (port 8100). The vendored
+mf-lpr2 / eott engines are now installed into this venv and called directly, so
+fusion runs in the same process as the main API — single-port deployment, no
+sidecar. The public signature (`fuse`, `FusionUnavailable`) is unchanged for
+backwards compatibility.
+"""
 import numpy as np
 
-DEFAULT_BASE_URL = "http://127.0.0.1:8100"
+from fusion_svc.adapters.eott_adapter import fuse_eott
+from fusion_svc.adapters.mflpr2_adapter import fuse_mflpr2
+
+_ENGINES = {"mflpr2": fuse_mflpr2, "eott": fuse_eott}
 
 
 class FusionUnavailable(Exception):
-    """Raised when fusion-svc cannot be reached."""
+    """Kept for API compatibility. No longer raised — engines run in-process."""
 
 
-def _png_bytes(arr: np.ndarray) -> bytes:
-    ok, buf = cv2.imencode(".png", arr)
-    if not ok:
-        raise ValueError("failed to PNG-encode crop")
-    return buf.tobytes()
+def fuse(crops, engine="mflpr2", scale=1, **_ignored):
+    """Fuse N BGR crops of one plate into a single restored BGR image.
 
-
-def fuse(crops, engine="mflpr2", scale=1, base_url=None, timeout=60.0):
-    """POST PNG-encoded BGR crops to fusion-svc; return decoded BGR restored plate."""
+    `_ignored` absorbs legacy kwargs (base_url/timeout) from old call sites.
+    """
     if not crops:
         raise ValueError("fuse requires at least one crop")
-    url_base = base_url or os.environ.get("FUSION_URL", DEFAULT_BASE_URL)
-    files = [
-        ("files", (f"c{i}.png", _png_bytes(c), "image/png"))
-        for i, c in enumerate(crops)
-    ]
-    params = {"engine": engine, "scale": int(scale)}
-    try:
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(f"{url_base}/fuse", files=files, params=params)
-            resp.raise_for_status()
-    except (httpx.ConnectError, httpx.ConnectTimeout) as e:
-        raise FusionUnavailable(f"fusion-svc unreachable at {url_base}: {e}") from e
-    arr = cv2.imdecode(np.frombuffer(resp.content, np.uint8), cv2.IMREAD_COLOR)
-    if arr is None:
-        raise ValueError("fusion-svc returned undecodable image")
-    return arr
+    if engine not in _ENGINES:
+        raise ValueError(f"unknown engine: {engine!r}")
+    out = _ENGINES[engine](crops, scale=int(scale))
+    if not isinstance(out, np.ndarray):
+        raise ValueError(f"{engine} returned a non-array result")
+    return out

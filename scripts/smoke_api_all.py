@@ -17,7 +17,8 @@ import httpx
 import numpy as np
 
 MAIN = os.environ.get("MAIN_URL", "http://127.0.0.1:7862").rstrip("/")
-FUSION = os.environ.get("FUSION_URL", "http://127.0.0.1:8100").rstrip("/")
+# Fusion is served in-process on the main port now; override only for a split deploy.
+FUSION = os.environ.get("FUSION_URL", MAIN).rstrip("/")
 
 _passed = 0
 _failed = 0
@@ -133,10 +134,9 @@ def main():
         check("POST /predict/plates/video", False, repr(e))
     os.unlink(vpath)
 
-    print(f"\n== fusion sidecar {FUSION} ==")
+    label = "fusion (in-process)" if FUSION == MAIN else f"fusion sidecar {FUSION}"
+    print(f"\n== {label} ==")
     try:
-        r = c.get(f"{FUSION}/health")
-        check("GET /health", r.status_code == 200 and r.json() == {"status": "ok"}, str(r.status_code))
         for eng in ("mflpr2", "eott"):
             r = c.post(f"{FUSION}/fuse?engine={eng}",
                        files=[("files", (f"c{i}.png", _png(val=180 + i), "image/png")) for i in range(4)])

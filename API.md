@@ -2,9 +2,24 @@
 
 FastAPI backend for vehicle detection, plate detection/tracking, and license-plate
 OCR. Source: [`main.py`](main.py). Pipeline: YOLO vehicle/plate detect → DeepSORT
-tracking → dual-OCR (fast-plate-ocr + PP-OCRv6). Multi-frame plate restoration is
-delegated to the **fusion sidecar** ([`fusion_svc/`](fusion_svc/), port `8100`)
-via [`utils/fusion_client.py`](utils/fusion_client.py).
+tracking → dual-OCR (fast-plate-ocr + PP-OCRv6). Multi-frame plate restoration
+(mf-lpr2 / eott) runs **in-process** on the same port via
+[`utils/fusion_client.py`](utils/fusion_client.py) — engines vendored under
+[`fusion_svc/`](fusion_svc/), installed into this venv. Everything is one process
+on one port; no sidecar. (The `fusion_svc/` app can still run standalone on 8100
+for isolated deployments — see [`fusion_svc/API.md`](fusion_svc/API.md).)
+
+## Install
+
+```bash
+uv sync                              # main deps (torch / paddle / YOLO / OCR)
+scripts/install_fusion_inproc.sh     # vendored mf-lpr2 + eott into this venv (in-process fusion)
+```
+
+`install_fusion_inproc.sh` inits the engine submodules and installs them
+`--no-deps` (avoids an `opencv-contrib-python` vs `opencv-python-headless`
+clash). **Re-run it after any `uv sync`** — `uv sync` prunes packages not in
+pyproject, which includes the two engines.
 
 ## Run
 
@@ -14,14 +29,8 @@ From the repo root (`/mnt/data/nblong-t04/AI-Traffic-Analysis`):
 uv run main.py                       # binds 0.0.0.0:7862 (HOST/PORT env to override)
 ```
 
-Swagger UI (browser upload): `http://<host>:7862/docs`.
-
-The two `/predict/plates/{multiframe,video}` endpoints additionally need the
-fusion sidecar running:
-
-```bash
-uv run --directory fusion_svc uvicorn fusion_svc.app:app --port 8100
-```
+Swagger UI (browser upload): `http://<host>:7862/docs`. All endpoints — including
+fusion — are served on this one port; no separate process to start.
 
 Background / survives logout:
 
@@ -35,7 +44,7 @@ Stop:
 kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 ```
 
-## Endpoints (10)
+## Endpoints (11)
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -49,6 +58,7 @@ kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 | `POST` | `/predict/plates/batch` | N images → **annotated** plate output + dual-OCR labels (jpeg / zip) |
 | `POST` | `/predict/plates/multiframe` | fuse a burst of one plate's crops → dual-OCR (JSON) |
 | `POST` | `/predict/plates/video` | detect+track plates in a video, fuse each track's burst → dual-OCR (JSON) |
+| `POST` | `/fuse` | fuse a burst of crops → restored plate **image** (PNG), no OCR |
 
 ### Output by endpoint
 
@@ -61,29 +71,34 @@ kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 | `/predict/plates/batch` | `files` | jpeg (1) / zip (>1), boxes + `FAST:`/`PPO:` text labels |
 | `/predict/plates/multiframe` | `files` (N crops) | `{engine, frames_used, fast:{text,confidence}, ppocr:{text,confidence}}` |
 | `/predict/plates/video` | `file` (1 video) | `[{track_id, n_frames, engine, fast, ppocr}, ...]` |
+| `/fuse` | `files` (N crops) | `image/png` restored plate (BGR), no OCR |
 
 `image` vs `frame`: `image` resets the tracker first (stateless single shots);
 `frame` preserves state so `track_id`s persist across a sequence — call `/reset`
 between independent clips.
 
-## Multi-frame fusion endpoints (engine = eott / mflpr2)
+## Fusion endpoints (engine = eott / mflpr2)
 
-Both delegate fusion to the sidecar, then dual-OCR the restored plate.
+`/fuse`, `/predict/plates/multiframe`, and `/predict/plates/video` all run the
+fusion engines **in-process** (no HTTP, no sidecar). `/fuse` returns the restored
+plate image; the two `/predict/plates/*` variants additionally dual-OCR it.
 
 | param | endpoint | default | meaning |
 |---|---|---|---|
-| `engine` | both | `mflpr2` | `mflpr2` (color restore) \| `eott` (binarized) |
-| `scale` | both | `1` | upscale factor — applied by `mflpr2`, **ignored by `eott`** |
-| `max_frames` | both | `32` | cap on crops/frames fused per plate |
+| `engine` | all three | `mflpr2` | `mflpr2` (color restore) \| `eott` (binarized) |
+| `scale` | all three | `1` | upscale factor — applied by `mflpr2`, **ignored by `eott`** |
+| `max_frames` | multiframe / video | `32` | cap on crops/frames fused per plate |
 | `min_frames` | video | `8` | min track length to attempt fusion |
 
+- `/fuse` takes N crops → one restored plate PNG (image-only). Crops should be
+  the same size and ordered.
 - `/multiframe` takes N crops of **one** plate; it auto-resizes the burst to a
-  common size (`resize_burst_to_common`) so unequal crop sizes are fine.
+  common size (`resize_burst_to_common`) so unequal crop sizes are fine, then OCRs.
 - `/video` runs detect+track over the whole clip, groups crops per track id, and
   fuses+OCRs each track's burst.
 
-See [`fusion_svc/API.md`](fusion_svc/API.md) for the sidecar contract and engine
-differences.
+See [`fusion_svc/API.md`](fusion_svc/API.md) for engine differences (mflpr2 vs
+eott output, scale behavior).
 
 ## Errors
 
@@ -93,8 +108,9 @@ differences.
 | `400` | batch / plates/batch | `No valid images in batch` (all files undecodable) |
 | `400` | multiframe | `unknown engine: '<x>'` or `no valid plate crops` |
 | `400` | video | `unknown engine: '<x>'` or `could not decode video` |
+| `400` | fuse | `unknown engine: '<x>'` or `no decodable frames` |
 | `500` | image/frame/multiframe | `Processing error: ...` (inference exception) |
-| `503` | multiframe / video | `FusionUnavailable` — fusion sidecar (8100) not running |
+| `500` | fuse | `<engine> failed: ...` (engine error, e.g. mismatched crop sizes) |
 
 ## Examples
 
@@ -111,12 +127,16 @@ curl -F files=@a.jpg -F files=@b.jpg http://localhost:7862/predict/batch -o anno
 # plate detect + dual OCR, annotated
 curl -F files=@scene.jpg http://localhost:7862/predict/plates/batch -o plates.jpg
 
-# multi-frame fusion + OCR (needs sidecar on 8100)
+# multi-frame fusion + OCR (in-process, single port)
 curl -X POST 'http://localhost:7862/predict/plates/multiframe?engine=mflpr2&scale=2' \
   -F files=@01.png -F files=@02.png -F files=@03.png
 
 # video: track + fuse each plate + OCR
 curl -X POST 'http://localhost:7862/predict/plates/video?engine=mflpr2' -F file=@clip.mp4
+
+# fusion only -> restored plate image (no OCR)
+curl -X POST 'http://localhost:7862/fuse?engine=mflpr2&scale=2' \
+  -F files=@01.png -F files=@02.png -o fused.png
 
 # info
 curl http://localhost:7862/health
@@ -139,16 +159,17 @@ curl -X POST http://localhost:7862/reset
 | `SR_ENGINE` / `SR_SCALE` | `none` / `2` | optional super-resolution pre-OCR |
 | `USE_DEEPSORT` | `false` | use DeepSORT (else lighter tracker) |
 | `LANG` | `en` | label language |
-| `FUSION_URL` | `http://127.0.0.1:8100` | fusion sidecar base URL (`utils/fusion_client.py`) |
 | `HOST` / `PORT` | `0.0.0.0` / `7862` | bind address |
+
+Fusion runs in-process, so there is no `FUSION_URL` / sidecar to configure.
 
 ## Smoke test
 
 ```bash
-uv run main.py &                                 # start main API (7862)
-uv run --directory fusion_svc uvicorn fusion_svc.app:app --port 8100 &   # sidecar
-uv run scripts/smoke_api_all.py                  # exercises all 10 main + 4 sidecar checks
+uv run main.py &                  # start API (7862) — fusion is in-process
+uv run scripts/smoke_api_all.py   # exercises all 11 endpoints (incl. /fuse + OCR paths)
 ```
 
 Synthetic inputs; checks status codes + response shape (not OCR accuracy).
-Override targets with `MAIN_URL` / `FUSION_URL`.
+Override target with `MAIN_URL`. `FUSION_URL` defaults to `MAIN_URL`; set it only
+to point `/fuse` checks at a standalone sidecar.

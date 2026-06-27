@@ -482,6 +482,32 @@ def predict_plates_multiframe(
     }
 
 
+@app.post("/fuse")
+def fuse_plates(
+    files: List[UploadFile] = File(...),
+    engine: str = "mflpr2",
+    scale: int = 1,
+):
+    """Multi-frame plate fusion (image-only, no OCR). Returns a restored plate PNG.
+
+    Mirrors the former fusion sidecar's POST /fuse, now served in-process on the
+    same port. N ordered same-size plate crops -> one restored plate (BGR PNG).
+    """
+    if engine not in ("mflpr2", "eott"):
+        raise HTTPException(status_code=400, detail=f"unknown engine: {engine!r}")
+    crops = _decode_uploads(files)
+    if not crops:
+        raise HTTPException(status_code=400, detail="no decodable frames")
+    try:
+        out = fusion_fuse(crops, engine=engine, scale=scale)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{engine} failed: {e}")
+    ok, buf = cv2.imencode(".png", out)
+    if not ok:
+        raise HTTPException(status_code=500, detail="png encode failed")
+    return StreamingResponse(io.BytesIO(buf.tobytes()), media_type="image/png")
+
+
 def _read_video_frames(data: bytes):
     """Decode video bytes into a list of BGR frames via a temp file."""
     frames = []
