@@ -89,6 +89,7 @@ plate crop.
 | 16  | `POST /fuse` | `files`=3 crops | `engine=eott` | `200`, **PNG** binarized plate |
 | 17  | `POST /fuse` | `files`=3 crops | `engine=bogus` | **`400`**, `unknown engine: 'bogus'` |
 | 18  | `POST /predict/vehicles/video` | `file`=1 mp4 | `frame_stride=2` | `200`, `{n_frames, stride, tracks:[{track_id, vehicle_type, license_plate, ...}]}` |
+| 19  | `POST /predict/vehicles/image` | `file`=1 scene | — | `200`, `{tracks:[{track_id, vehicle_type, license_plate, ...}]}` |
 
 ### `/predict/image` response (scenario 5) — what to check
 

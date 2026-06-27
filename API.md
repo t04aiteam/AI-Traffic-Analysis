@@ -43,7 +43,7 @@ Stop:
 kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 ```
 
-## Endpoints (12)
+## Endpoints (13)
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -57,6 +57,7 @@ kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 | `POST` | `/predict/plates/batch` | N images → **annotated** plate output + dual-OCR labels (jpeg / zip) |
 | `POST` | `/predict/plates/multiframe` | fuse a burst of one plate's crops → dual-OCR (JSON) |
 | `POST` | `/predict/plates/video` | detect+track plates in a video, fuse each track's burst → dual-OCR (JSON) |
+| `POST` | `/predict/vehicles/image` | detect+track vehicles in 1 image → per-track **vehicle type** + plate (JSON) |
 | `POST` | `/predict/vehicles/video` | detect+track vehicles in a video → per-track **vehicle type** + plate (JSON) |
 | `POST` | `/fuse` | fuse a burst of crops → restored plate **image** (PNG), no OCR |
 
@@ -71,6 +72,7 @@ kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 | `/predict/plates/batch` | `files` | jpeg (1) / zip (>1), boxes + `FAST:`/`PPO:` text labels |
 | `/predict/plates/multiframe` | `files` (N crops) | `{engine, frames_used, fast:{text,confidence}, ppocr:{text,confidence}}` |
 | `/predict/plates/video` | `file` (1 video) | `[{track_id, n_frames, engine, fast, ppocr}, ...]` |
+| `/predict/vehicles/image` | `file` (1 image) | `{tracks:[{track_id, vehicle_type, license_plate, confidence, bbox, plate_bbox}]}` |
 | `/predict/vehicles/video` | `file` (1 video) (+ `?frame_stride=`) | `{n_frames, stride, tracks:[{track_id, frames_seen, vehicle_type, license_plate, confidence, bbox, plate_bbox}]}` |
 | `/fuse` | `files` (N crops) | `image/png` restored plate (BGR), no OCR |
 
@@ -134,6 +136,9 @@ curl -X POST 'http://localhost:7862/predict/plates/multiframe?engine=mflpr2&scal
 
 # video: track + fuse each plate + OCR
 curl -X POST 'http://localhost:7862/predict/plates/video?engine=mflpr2' -F file=@clip.mp4
+
+# image: per-track vehicle type + plate (JSON)
+curl -F file=@scene.jpg http://localhost:7862/predict/vehicles/image
 
 # video: per-track vehicle type + plate (every 2nd frame)
 curl -X POST 'http://localhost:7862/predict/vehicles/video?frame_stride=2' -F file=@clip.mp4

@@ -605,6 +605,41 @@ def predict_vehicles_video(
     return {"n_frames": len(frames), "stride": stride, "tracks": list(tracks.values())}
 
 
+@app.post("/predict/vehicles/image")
+def predict_vehicles_image(file: UploadFile = File(...)):
+    """Detect+track vehicles in one image; return per-track vehicle type + plate.
+
+    Single-image analogue of /predict/vehicles/video (same per-track schema).
+    Resets the tracker first (stateless single shot).
+    """
+    contents = file.file.read()
+    img = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    traffic_service.reset()
+    _ = traffic_service.process_frame(img)
+
+    tracks = []
+    for track_id, vehicle in traffic_service.vehicles.items():
+        b = vehicle.bbox_xyxy
+        entry = {
+            "track_id": int(track_id),
+            "vehicle_type": vehicle.vehicle_type or None,
+            "license_plate": vehicle.plate_number or None,
+            "confidence": float(vehicle.ocr_conf) if vehicle.ocr_conf > 0 else None,
+            "bbox": {"x1": float(b[0]), "y1": float(b[1]),
+                     "x2": float(b[2]), "y2": float(b[3])},
+            "plate_bbox": None,
+        }
+        if vehicle.license_plate_bbox is not None:
+            pb = vehicle.license_plate_bbox
+            entry["plate_bbox"] = {"x1": float(pb[0]), "y1": float(pb[1]),
+                                   "x2": float(pb[2]), "y2": float(pb[3])}
+        tracks.append(entry)
+    return {"tracks": tracks}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

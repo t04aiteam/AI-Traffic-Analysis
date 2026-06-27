@@ -91,6 +91,9 @@ def main():
     r = c.post(f"{MAIN}/predict/frame?frame_number=1", files={"file": ("s.jpg", img, "image/jpeg")})
     check("POST /predict/frame", r.status_code == 200 and "detections" in r.json(), str(r.status_code))
 
+    r = c.post(f"{MAIN}/predict/vehicles/image", files={"file": ("s.jpg", img, "image/jpeg")})
+    check("POST /predict/vehicles/image", r.status_code == 200 and isinstance(r.json().get("tracks"), list), str(r.status_code))
+
     r = c.post(f"{MAIN}/predict/batch", files={"files": ("s.jpg", img, "image/jpeg")})
     check("POST /predict/batch (1 img -> jpeg)",
           r.status_code == 200 and r.headers["content-type"] == "image/jpeg", str(r.status_code))
