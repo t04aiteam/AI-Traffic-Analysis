@@ -561,6 +561,50 @@ def predict_plates_video(
     return results
 
 
+@app.post("/predict/vehicles/video")
+def predict_vehicles_video(
+    file: UploadFile = File(...),
+    frame_stride: int = 1,
+):
+    """Detect+track vehicles across a video; return per-track vehicle data.
+
+    Mirrors /predict/plates/video but returns vehicle type + plate per track
+    (not fusion OCR). Tracking is maintained across frames (one track_id per
+    vehicle); the latest seen state for each track is returned. `frame_stride`
+    processes every Nth frame (speed vs coverage).
+    """
+    data = file.file.read()
+    frames = _read_video_frames(data)
+    if not frames:
+        raise HTTPException(status_code=400, detail="could not decode video")
+
+    stride = max(1, frame_stride)
+    traffic_service.reset()  # fresh track ids for this clip
+    tracks: dict[int, dict] = {}
+    for idx in range(0, len(frames), stride):
+        _ = traffic_service.process_frame(frames[idx])
+        for track_id, vehicle in traffic_service.vehicles.items():
+            entry = tracks.setdefault(int(track_id), {
+                "track_id": int(track_id), "frames_seen": 0,
+                "vehicle_type": None, "license_plate": None,
+                "confidence": None, "bbox": None, "plate_bbox": None,
+            })
+            entry["frames_seen"] += 1
+            b = vehicle.bbox_xyxy
+            entry["bbox"] = {"x1": float(b[0]), "y1": float(b[1]),
+                             "x2": float(b[2]), "y2": float(b[3])}
+            if vehicle.vehicle_type:
+                entry["vehicle_type"] = vehicle.vehicle_type
+            if vehicle.plate_number:
+                entry["license_plate"] = vehicle.plate_number
+                entry["confidence"] = float(vehicle.ocr_conf) if vehicle.ocr_conf > 0 else None
+            if vehicle.license_plate_bbox is not None:
+                pb = vehicle.license_plate_bbox
+                entry["plate_bbox"] = {"x1": float(pb[0]), "y1": float(pb[1]),
+                                       "x2": float(pb[2]), "y2": float(pb[3])}
+    return {"n_frames": len(frames), "stride": stride, "tracks": list(tracks.values())}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

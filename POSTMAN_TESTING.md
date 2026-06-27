@@ -88,6 +88,7 @@ plate crop.
 | 15  | `POST /fuse` | `files`=3 crops | `engine=mflpr2&scale=2` | `200`, **PNG** restored plate (no OCR) |
 | 16  | `POST /fuse` | `files`=3 crops | `engine=eott` | `200`, **PNG** binarized plate |
 | 17  | `POST /fuse` | `files`=3 crops | `engine=bogus` | **`400`**, `unknown engine: 'bogus'` |
+| 18  | `POST /predict/vehicles/video` | `file`=1 mp4 | `frame_stride=2` | `200`, `{n_frames, stride, tracks:[{track_id, vehicle_type, license_plate, ...}]}` |
 
 ### `/predict/image` response (scenario 5) — what to check
 
@@ -132,6 +133,7 @@ plate crop.
 | Endpoint | Param | Type | Meaning |
 | -------- | ----- | ---- | ------- |
 | `/predict/frame` | `frame_number` | int | reference number echoed back as `frame_count` |
+| `/predict/vehicles/video` | `frame_stride` | int | process every Nth frame (speed vs coverage; default 1) |
 | `multiframe` / `video` / `fuse` | `engine` | `mflpr2`\|`eott` | fusion engine (default `mflpr2`); `eott` outputs binarized |
 | `multiframe` / `video` / `fuse` | `scale` | int | upscale factor — applied by `mflpr2`, **ignored by `eott`** |
 | `multiframe` / `video` | `max_frames` | int | cap on crops/frames fused (default 32) |
