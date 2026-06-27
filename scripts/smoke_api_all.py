@@ -108,6 +108,30 @@ def main():
     r = c.post(f"{MAIN}/predict/batch", files={"files": ("x.txt", b"notimage", "text/plain")})
     check("POST /predict/batch (garbage -> 400)", r.status_code == 400, str(r.status_code))
 
+    # batch: JSON mode over 2 images
+    r = c.post(f"{MAIN}/predict/batch?format=json",
+               files=[("files", (f"s{i}.jpg", _scene(), "image/jpeg")) for i in range(2)])
+    j = r.json() if r.status_code == 200 else {}
+    ok = r.status_code == 200 and len(j.get("results", [])) == 2 and j["results"][0]["kind"] == "image"
+    check("POST /predict/batch (format=json, 2 imgs)", ok, str(r.status_code))
+
+    # batch: a video file -> annotated mp4
+    bvid = _video()
+    with open(bvid, "rb") as fh:
+        r = c.post(f"{MAIN}/predict/batch?frame_stride=3", files={"files": ("clip.mp4", fh.read(), "video/mp4")})
+    check("POST /predict/batch (video -> mp4)",
+          r.status_code == 200 and r.headers.get("content-type") == "video/mp4", str(r.status_code))
+
+    # batch: a zip of 2 images -> zip of annotated
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, "w") as zf:
+        for i in range(2):
+            zf.writestr(f"z{i}.jpg", _scene())
+    r = c.post(f"{MAIN}/predict/batch", files={"files": ("imgs.zip", zbuf.getvalue(), "application/zip")})
+    nz = len(zipfile.ZipFile(io.BytesIO(r.content)).namelist()) if r.headers.get("content-type") == "application/zip" else 0
+    check("POST /predict/batch (zip -> zip of 2)", r.status_code == 200 and nz == 2, f"{r.status_code}, {nz}")
+    os.unlink(bvid)
+
     r = c.post(f"{MAIN}/predict/plates/batch", files={"files": ("s.jpg", img, "image/jpeg")})
     check("POST /predict/plates/batch (1 img -> jpeg)",
           r.status_code == 200 and r.headers["content-type"] == "image/jpeg", str(r.status_code))

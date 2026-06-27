@@ -49,14 +49,21 @@
       }
     },
     {
-      "name": "Predict batch (annotated, vehicles)",
+      "name": "Predict batch (images/videos/zips -> media or JSON)",
       "request": {
         "method": "POST", "header": [],
         "body": { "mode": "formdata", "formdata": [
           { "key": "files", "type": "file", "src": [] },
           { "key": "files", "type": "file", "src": [] }
         ] },
-        "url": { "raw": "{{base_url}}/predict/batch", "host": ["{{base_url}}"], "path": ["predict", "batch"] }
+        "url": {
+          "raw": "{{base_url}}/predict/batch?format=media&frame_stride=1",
+          "host": ["{{base_url}}"], "path": ["predict", "batch"],
+          "query": [
+            { "key": "format", "value": "media", "description": "media (annotated jpg/mp4/zip) or json" },
+            { "key": "frame_stride", "value": "1", "description": "every Nth frame for video inputs" }
+          ]
+        }
       }
     },
     {

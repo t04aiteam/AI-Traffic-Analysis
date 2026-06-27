@@ -53,7 +53,7 @@ kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 | `POST` | `/reset`   | reset the tracker (new video/stream) |
 | `POST` | `/predict/image`  | 1 image → JSON vehicle detections (**resets tracker** each call) |
 | `POST` | `/predict/frame`  | 1 frame → JSON detections (**keeps** tracking state across calls) |
-| `POST` | `/predict/batch`  | N images → **annotated** vehicle output (jpeg / zip) |
+| `POST` | `/predict/batch`  | N **images/videos/zips** → annotated media **or** JSON (`?format=json\|media`) |
 | `POST` | `/predict/plates/batch` | N images → **annotated** plate output + dual-OCR labels (jpeg / zip) |
 | `POST` | `/predict/plates/multiframe` | fuse a burst of one plate's crops → dual-OCR (JSON) |
 | `POST` | `/predict/plates/video` | detect+track plates in a video, fuse each track's burst → dual-OCR (JSON) |
@@ -67,8 +67,8 @@ kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 |---|---|---|
 | `/predict/image` | `file` | `{detections:[{track_id,bbox,vehicle_type,license_plate,plate_bbox,confidence}]}` |
 | `/predict/frame` | `file` (+ `?frame_number=`) | same shape + `frame_count` |
-| `/predict/batch` | `files` (1) | annotated `image/jpeg` |
-| `/predict/batch` | `files` (>1) | `application/zip` of `<name>.jpg` |
+| `/predict/batch` (`format=media`) | `files` (images/videos/zips, 1..N) | 1 result → `image/jpeg` or `video/mp4`; >1 → `application/zip` of `<stem>_pred.jpg`/`.mp4` |
+| `/predict/batch` (`?format=json`) | same | `{results:[{source, kind, detections}\|{source, kind, n_frames, stride, tracks}]}` |
 | `/predict/plates/batch` | `files` | jpeg (1) / zip (>1), boxes + `FAST:`/`PPO:` text labels |
 | `/predict/plates/multiframe` | `files` (N crops) | `{engine, frames_used, fast:{text,confidence}, ppocr:{text,confidence}}` |
 | `/predict/plates/video` | `file` (1 video) | `[{track_id, n_frames, engine, fast, ppocr}, ...]` |
@@ -124,8 +124,14 @@ curl -F file=@scene.jpg http://localhost:7862/predict/image
 # video frame, keep tracking state
 curl -F file=@frame0007.jpg 'http://localhost:7862/predict/frame?frame_number=7'
 
-# batch annotate (many -> zip)
-curl -F files=@a.jpg -F files=@b.jpg http://localhost:7862/predict/batch -o annotated.zip
+# batch annotate (mixed images/videos/zips; many -> zip)
+curl -F files=@a.jpg -F files=@clip.mp4 -F files=@imgs.zip http://localhost:7862/predict/batch -o out.zip
+
+# batch annotate one video -> mp4 (every 2nd frame)
+curl -F files=@clip.mp4 'http://localhost:7862/predict/batch?frame_stride=2' -o out.mp4
+
+# batch as JSON instead of images
+curl -F files=@a.jpg -F files=@clip.mp4 'http://localhost:7862/predict/batch?format=json'
 
 # plate detect + dual OCR, annotated
 curl -F files=@scene.jpg http://localhost:7862/predict/plates/batch -o plates.jpg

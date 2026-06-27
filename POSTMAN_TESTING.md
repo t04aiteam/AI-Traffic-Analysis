@@ -78,8 +78,12 @@ plate crop.
 | 5   | `POST /predict/image` | `file`=1 scene | — | `200`, `{detections:[...]}` |
 | 6   | `POST /predict/frame` | `file`=1 scene | `frame_number=7` | `200`, detections + `frame_count` |
 | 7   | `POST /predict/batch` | `files`=1 scene | — | `200`, **annotated JPEG** |
-| 8   | `POST /predict/batch` | `files`=3 scenes | — | `200`, **ZIP** of `*.jpg` |
-| 9   | `POST /predict/batch` | `files`=`.txt`/garbage | — | **`400`**, `No valid images in batch` |
+| 8   | `POST /predict/batch` | `files`=3 scenes | — | `200`, **ZIP** of `*_pred.jpg` |
+| 9   | `POST /predict/batch` | `files`=`.txt`/garbage | — | **`400`**, `no decodable images/videos in upload` |
+| 9a  | `POST /predict/batch` | `files`=2 scenes | `format=json` | `200`, `{results:[{source,kind:"image",detections:[...]}]}` |
+| 9b  | `POST /predict/batch` | `files`=1 video (mp4) | `frame_stride=2` | `200`, **annotated MP4** |
+| 9c  | `POST /predict/batch` | `files`=1 zip of images | — | `200`, **ZIP** of annotated `*_pred.jpg` |
+| 9d  | `POST /predict/batch` | `files`= 1 image + 1 video | — | `200`, **ZIP** with a `.jpg` + an `.mp4` |
 | 10  | `POST /predict/plates/batch` | `files`=1 scene | — | `200`, **JPEG** w/ plate boxes + `FAST:`/`PPO:` labels |
 | 11  | `POST /predict/plates/multiframe` | `files`=3 crops | `engine=mflpr2&scale=2` | `200`, JSON `{engine,frames_used,fast,ppocr}` |
 | 12  | `POST /predict/plates/multiframe` | `files`=3 crops | `engine=eott` | `200`, JSON (binarized fuse + OCR) |
@@ -134,6 +138,8 @@ plate crop.
 | Endpoint | Param | Type | Meaning |
 | -------- | ----- | ---- | ------- |
 | `/predict/frame` | `frame_number` | int | reference number echoed back as `frame_count` |
+| `/predict/batch` | `format` | `media`\|`json` | annotated images/mp4 (default) or JSON detections/tracks |
+| `/predict/batch` | `frame_stride` | int | for video inputs: process every Nth frame (default 1) |
 | `/predict/vehicles/video` | `frame_stride` | int | process every Nth frame (speed vs coverage; default 1) |
 | `multiframe` / `video` / `fuse` | `engine` | `mflpr2`\|`eott` | fusion engine (default `mflpr2`); `eott` outputs binarized |
 | `multiframe` / `video` / `fuse` | `scale` | int | upscale factor — applied by `mflpr2`, **ignored by `eott`** |

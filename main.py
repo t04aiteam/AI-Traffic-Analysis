@@ -292,65 +292,169 @@ async def get_config():
     }
 
 
-@app.post("/predict/batch")
-def predict_batch(files: List[UploadFile] = File(...)):
-    """
-    Detect vehicles in one or more images and return annotated output.
+_IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff", ".gif"}
+_VID_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
 
-    Single image: returns image/jpeg.
-    Multiple images: returns application/zip with one annotated JPEG per input file.
-    Invalid files are skipped; if all files are invalid, returns HTTP 400.
-    FastAPI runs plain `def` handlers in a threadpool, keeping the event loop free
-    during blocking YOLO inference.
-    """
-    results: list[tuple[str, bytes]] = []
 
-    for upload in files:
-        contents = upload.file.read()
-        nparr = np.frombuffer(contents, np.uint8)
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if frame is None:
-            continue
+def _expand_one(name, raw):
+    """Yield (source_name, kind, payload) for one file. kind: 'image' (ndarray)
+    or 'video' (list of frames). Zips are extracted recursively; unknown
+    extensions are sniffed by trying image- then video-decode."""
+    ext = os.path.splitext(name)[1].lower()
+    if ext == ".zip":
         try:
-            annotated = traffic_service.detect_vehicles_only(frame)
-            ok, buf = cv2.imencode(".jpg", annotated)
-            if not ok:
+            zf = zipfile.ZipFile(io.BytesIO(raw))
+        except Exception:
+            return
+        for n in zf.namelist():
+            if n.endswith("/"):
                 continue
-            # Sanitise filename: PurePosixPath strips both / and \ traversal sequences
-            raw_name = (
-                pathlib.PurePosixPath(
-                    (upload.filename or "").replace("\\", "/")
-                ).name
-                or f"image_{len(results)}.jpg"
-            )
-            if not raw_name.lower().endswith((".jpg", ".jpeg")):
-                base = raw_name.rsplit(".", 1)[0] if "." in raw_name else raw_name
-                raw_name = base + ".jpg"
-            results.append((raw_name, buf.tobytes()))
+            yield from _expand_one(n, zf.read(n))
+        return
+    if ext in _IMG_EXT or ext not in _VID_EXT:          # image, or sniff unknown
+        arr = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+        if arr is not None:
+            yield (name, "image", arr)
+            return
+        if ext in _IMG_EXT:                              # named image but undecodable
+            return
+    if ext in _VID_EXT or ext not in _IMG_EXT:           # video, or sniff unknown
+        frames = _read_video_frames(raw)
+        if frames:
+            yield (name, "video", frames)
+
+
+def _expand_inputs(uploads):
+    for up in uploads:
+        yield from _expand_one(up.filename or "file", up.file.read())
+
+
+def _vehicle_entry(track_id, vehicle):
+    b = vehicle.bbox_xyxy
+    entry = {
+        "track_id": int(track_id),
+        "vehicle_type": vehicle.vehicle_type or None,
+        "license_plate": vehicle.plate_number or None,
+        "confidence": float(vehicle.ocr_conf) if vehicle.ocr_conf > 0 else None,
+        "bbox": {"x1": float(b[0]), "y1": float(b[1]),
+                 "x2": float(b[2]), "y2": float(b[3])},
+        "plate_bbox": None,
+    }
+    if vehicle.license_plate_bbox is not None:
+        pb = vehicle.license_plate_bbox
+        entry["plate_bbox"] = {"x1": float(pb[0]), "y1": float(pb[1]),
+                               "x2": float(pb[2]), "y2": float(pb[3])}
+    return entry
+
+
+def _detections_image(img):
+    traffic_service.reset()
+    traffic_service.process_frame(img)
+    return [_vehicle_entry(tid, v) for tid, v in traffic_service.vehicles.items()]
+
+
+def _tracks_video(name, frames, stride):
+    traffic_service.reset()
+    tracks: dict[int, dict] = {}
+    for idx in range(0, len(frames), stride):
+        traffic_service.process_frame(frames[idx])
+        for tid, v in traffic_service.vehicles.items():
+            e = tracks.setdefault(int(tid), {"frames_seen": 0})
+            e.update(_vehicle_entry(tid, v))
+            e["frames_seen"] = e.get("frames_seen", 0) + 1
+    return {"source": name, "kind": "video", "n_frames": len(frames),
+            "stride": stride, "tracks": list(tracks.values())}
+
+
+def _annotate_video(frames, stride):
+    """Annotate (detect) every Nth frame, write an mp4, return its bytes."""
+    h, w = frames[0].shape[:2]
+    out_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
+    vw = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), 20, (w, h))
+    try:
+        for idx in range(0, len(frames), stride):
+            vw.write(traffic_service.detect_vehicles_only(frames[idx]))
+    finally:
+        vw.release()
+    with open(out_path, "rb") as fh:
+        data = fh.read()
+    os.unlink(out_path)
+    return data
+
+
+@app.post("/predict/batch")
+def predict_batch(
+    files: List[UploadFile] = File(...),
+    format: str = "media",
+    frame_stride: int = 1,
+):
+    """Detect vehicles across one or more files of mixed type → annotated media or JSON.
+
+    Accepts **multiple files** of any mix of: images (jpg/png/bmp/webp/tif/gif/...),
+    videos (mp4/avi/mov/mkv/webm/m4v), and **zips** (extracted recursively).
+    Unknown extensions are sniffed (image-decode, then video-decode).
+
+    `format=media` (default): annotated JPEG per image, annotated MP4 per video.
+      one output → that file; multiple → a zip.
+    `format=json`: `{results:[{source, kind, detections|tracks}]}` — no images.
+    `frame_stride`: process every Nth video frame (speed vs coverage).
+    """
+    if format not in ("media", "json"):
+        raise HTTPException(status_code=400, detail="format must be 'media' or 'json'")
+    stride = max(1, frame_stride)
+
+    inputs = list(_expand_inputs(files))
+    if not inputs:
+        raise HTTPException(status_code=400, detail="no decodable images/videos in upload")
+
+    if format == "json":
+        results = []
+        for name, kind, payload in inputs:
+            if kind == "image":
+                results.append({"source": name, "kind": "image",
+                                "detections": _detections_image(payload)})
+            else:
+                results.append(_tracks_video(name, payload, stride))
+        return {"results": results}
+
+    # media: annotate each input
+    outputs: list[tuple[str, bytes, str]] = []
+    for name, kind, payload in inputs:
+        stem = pathlib.PurePosixPath(name.replace("\\", "/")).stem or "out"
+        try:
+            if kind == "image":
+                ok, buf = cv2.imencode(".jpg", traffic_service.detect_vehicles_only(payload))
+                if ok:
+                    outputs.append((f"{stem}_pred.jpg", buf.tobytes(), "image/jpeg"))
+            else:
+                outputs.append((f"{stem}_pred.mp4", _annotate_video(payload, stride), "video/mp4"))
         except Exception as e:
-            logger.warning("Skipping %s: %s", upload.filename, e)
-            continue
+            logger.warning("Skipping %s: %s", name, e)
 
-    if not results:
-        raise HTTPException(status_code=400, detail="No valid images in batch")
+    if not outputs:
+        raise HTTPException(status_code=500, detail="annotation produced no output")
 
-    if len(results) == 1:
-        return StreamingResponse(io.BytesIO(results[0][1]), media_type="image/jpeg")
+    if len(outputs) == 1:
+        fn, data, mt = outputs[0]
+        return StreamingResponse(io.BytesIO(data), media_type=mt,
+                                 headers={"Content-Disposition": f'attachment; filename="{fn}"'})
 
     zip_buf = io.BytesIO()
     seen: dict[str, int] = {}
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for raw_name, data in results:
-            n = seen.get(raw_name, 0)
-            seen[raw_name] = n + 1
-            entry = raw_name if n == 0 else f"{raw_name.rsplit('.', 1)[0]}_{n}.jpg"
-            zf.writestr(entry, data)
+        for fn, data, _ in outputs:
+            n = seen.get(fn, 0)
+            seen[fn] = n + 1
+            if n:
+                base, ext = fn.rsplit(".", 1)
+                fn = f"{base}_{n}.{ext}"
+            zf.writestr(fn, data)
     zip_buf.seek(0)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return StreamingResponse(
         zip_buf,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="annotated_{ts}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="predictions_{ts}.zip"'},
     )
 
 
