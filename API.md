@@ -6,8 +6,7 @@ tracking → dual-OCR (fast-plate-ocr + PP-OCRv6). Multi-frame plate restoration
 (mf-lpr2 / eott) runs **in-process** on the same port via
 [`utils/fusion_client.py`](utils/fusion_client.py) — engines vendored under
 [`fusion_svc/`](fusion_svc/), installed into this venv. Everything is one process
-on one port; no sidecar. (The `fusion_svc/` app can still run standalone on 8100
-for isolated deployments — see [`fusion_svc/API.md`](fusion_svc/API.md).)
+on one port; no sidecar.
 
 ## Install
 
@@ -161,7 +160,7 @@ curl -X POST http://localhost:7862/reset
 | `LANG` | `en` | label language |
 | `HOST` / `PORT` | `0.0.0.0` / `7862` | bind address |
 
-Fusion runs in-process, so there is no `FUSION_URL` / sidecar to configure.
+Fusion runs in-process — nothing else to configure or start.
 
 ## Smoke test
 
@@ -171,5 +170,4 @@ uv run scripts/smoke_api_all.py   # exercises all 11 endpoints (incl. /fuse + OC
 ```
 
 Synthetic inputs; checks status codes + response shape (not OCR accuracy).
-Override target with `MAIN_URL`. `FUSION_URL` defaults to `MAIN_URL`; set it only
-to point `/fuse` checks at a standalone sidecar.
+Override target with `MAIN_URL`.
