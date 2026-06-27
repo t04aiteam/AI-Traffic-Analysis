@@ -43,7 +43,7 @@ Stop:
 kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 ```
 
-## Endpoints (13)
+## Endpoints (10)
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -51,34 +51,31 @@ kill $(ss -ltnp | grep ':7862' | grep -oP 'pid=\K[0-9]+')
 | `GET`  | `/health`  | `{status, device, models_loaded}` |
 | `GET`  | `/config`  | active weights / confidences / OCR + SR engine |
 | `POST` | `/reset`   | reset the tracker (new video/stream) |
-| `POST` | `/predict/image`  | 1 image → JSON vehicle detections (**resets tracker** each call) |
-| `POST` | `/predict/frame`  | 1 frame → JSON detections (**keeps** tracking state across calls) |
-| `POST` | `/predict/batch`  | N **images/videos/zips** → annotated media **or** JSON (`?format=json\|media`) |
+| `POST` | `/predict/frame`  | 1 frame → JSON vehicle detections (**keeps** tracking state across calls) |
+| `POST` | `/predict/batch`  | N **images/videos/zips** → annotated media **or** JSON (`?format=json\|media`); vehicle type + plate per source |
 | `POST` | `/predict/plates/batch` | N images → **annotated** plate output + dual-OCR labels (jpeg / zip) |
 | `POST` | `/predict/plates/multiframe` | fuse a burst of one plate's crops → dual-OCR (JSON) |
 | `POST` | `/predict/plates/video` | detect+track plates in a video, fuse each track's burst → dual-OCR (JSON) |
-| `POST` | `/predict/vehicles/image` | detect+track vehicles in 1 image → per-track **vehicle type** + plate (JSON) |
-| `POST` | `/predict/vehicles/video` | detect+track vehicles in a video → per-track **vehicle type** + plate (JSON) |
 | `POST` | `/fuse` | fuse a burst of crops → restored plate **image** (PNG), no OCR |
 
 ### Output by endpoint
 
 | endpoint | body field | output |
 |---|---|---|
-| `/predict/image` | `file` | `{detections:[{track_id,bbox,vehicle_type,license_plate,plate_bbox,confidence}]}` |
-| `/predict/frame` | `file` (+ `?frame_number=`) | same shape + `frame_count` |
+| `/predict/frame` | `file` (+ `?frame_number=`) | `{detections:[{track_id,bbox,vehicle_type,license_plate,plate_bbox,confidence}], frame_count}` |
 | `/predict/batch` (`format=media`) | `files` (images/videos/zips, 1..N) | 1 result → `image/jpeg` or `video/mp4`; >1 → `application/zip` of `<stem>_pred.jpg`/`.mp4` |
 | `/predict/batch` (`?format=json`) | same | `{results:[{source, kind, detections}\|{source, kind, n_frames, stride, tracks}]}` |
 | `/predict/plates/batch` | `files` | jpeg (1) / zip (>1), boxes + `FAST:`/`PPO:` text labels |
 | `/predict/plates/multiframe` | `files` (N crops) | `{engine, frames_used, fast:{text,confidence}, ppocr:{text,confidence}}` |
 | `/predict/plates/video` | `file` (1 video) | `[{track_id, n_frames, engine, fast, ppocr}, ...]` |
-| `/predict/vehicles/image` | `file` (1 image) | `{tracks:[{track_id, vehicle_type, license_plate, confidence, bbox, plate_bbox}]}` |
-| `/predict/vehicles/video` | `file` (1 video) (+ `?frame_stride=`) | `{n_frames, stride, tracks:[{track_id, frames_seen, vehicle_type, license_plate, confidence, bbox, plate_bbox}]}` |
 | `/fuse` | `files` (N crops) | `image/png` restored plate (BGR), no OCR |
 
-`image` vs `frame`: `image` resets the tracker first (stateless single shots);
-`frame` preserves state so `track_id`s persist across a sequence — call `/reset`
-between independent clips.
+Vehicle type + plate per source: use `/predict/batch?format=json` (any mix of
+images/videos/zips → `results[]` with `detections` for images, `tracks` for
+videos). `/predict/frame` is the **stateful** single-frame path — it preserves
+`track_id`s across calls (feed a sequence frame-by-frame); call `/reset` between
+independent clips. (For a one-off stateless single image, `/predict/batch?format=json`
+with one file gives the same data.)
 
 ## Fusion endpoints (engine = eott / mflpr2)
 
@@ -118,10 +115,10 @@ eott output, scale behavior).
 ## Examples
 
 ```bash
-# single image -> JSON detections
-curl -F file=@scene.jpg http://localhost:7862/predict/image
+# single image -> JSON vehicle detections (type + plate)
+curl -F files=@scene.jpg 'http://localhost:7862/predict/batch?format=json'
 
-# video frame, keep tracking state
+# video frame, keep tracking state across calls
 curl -F file=@frame0007.jpg 'http://localhost:7862/predict/frame?frame_number=7'
 
 # batch annotate (mixed images/videos/zips; many -> zip)
@@ -143,11 +140,8 @@ curl -X POST 'http://localhost:7862/predict/plates/multiframe?engine=mflpr2&scal
 # video: track + fuse each plate + OCR
 curl -X POST 'http://localhost:7862/predict/plates/video?engine=mflpr2' -F file=@clip.mp4
 
-# image: per-track vehicle type + plate (JSON)
-curl -F file=@scene.jpg http://localhost:7862/predict/vehicles/image
-
-# video: per-track vehicle type + plate (every 2nd frame)
-curl -X POST 'http://localhost:7862/predict/vehicles/video?frame_stride=2' -F file=@clip.mp4
+# video -> per-track vehicle type + plate (JSON, every 2nd frame)
+curl -F files=@clip.mp4 'http://localhost:7862/predict/batch?format=json&frame_stride=2'
 
 # fusion only -> restored plate image (no OCR)
 curl -X POST 'http://localhost:7862/fuse?engine=mflpr2&scale=2' \

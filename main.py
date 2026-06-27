@@ -118,8 +118,9 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "/health": "Health check",
-            "/predict/image": "Process single image (POST)",
-            "/predict/frame": "Process video frame (POST)",
+            "/predict/frame": "Process a video frame, stateful tracking (POST)",
+            "/predict/batch": "Images/videos/zips -> annotated media or JSON (POST)",
+            "/predict/plates/batch": "Plate detect + dual-OCR, annotated (POST)",
             "/reset": "Reset tracker (POST)"
         }
     }
@@ -133,68 +134,6 @@ async def health():
         device=str(traffic_service.opts.device),
         models_loaded=True
     )
-
-
-@app.post("/predict/image", response_model=PredictionResponse)
-async def predict_image(file: UploadFile = File(...)):
-    """
-    Process a single image and return vehicle detections with license plates
-    
-    Args:
-        file: Image file (jpg, png, etc.)
-        
-    Returns:
-        JSON with list of detections containing track_id, bbox, vehicle_type, license_plate
-    """
-    try:
-        # Read image file
-        contents = await file.read()
-        nparr = np.frombuffer(contents, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if img is None:
-            raise HTTPException(status_code=400, detail="Invalid image file")
-        
-        # Reset tracker for single image processing
-        traffic_service.reset()
-        
-        # Process frame (without drawing)
-        _ = traffic_service.process_frame(img)
-        
-        # Extract detections
-        detections = []
-        for track_id, vehicle in traffic_service.vehicles.items():
-            bbox_xyxy = vehicle.bbox_xyxy
-            
-            detection = VehicleDetection(
-                track_id=track_id,
-                bbox=BoundingBox(
-                    x1=float(bbox_xyxy[0]),
-                    y1=float(bbox_xyxy[1]),
-                    x2=float(bbox_xyxy[2]),
-                    y2=float(bbox_xyxy[3])
-                ),
-                vehicle_type=vehicle.vehicle_type if vehicle.vehicle_type else None,
-                license_plate=vehicle.plate_number if vehicle.plate_number else None,
-                confidence=float(vehicle.ocr_conf) if vehicle.ocr_conf > 0 else None
-            )
-            
-            # Add plate bbox if available
-            if vehicle.license_plate_bbox is not None:
-                plate_bbox = vehicle.license_plate_bbox
-                detection.plate_bbox = BoundingBox(
-                    x1=float(plate_bbox[0]),
-                    y1=float(plate_bbox[1]),
-                    x2=float(plate_bbox[2]),
-                    y2=float(plate_bbox[3])
-                )
-            
-            detections.append(detection)
-        
-        return PredictionResponse(detections=detections)
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
 
 @app.post("/predict/frame", response_model=PredictionResponse)
@@ -698,85 +637,6 @@ def predict_plates_video(
             "ppocr": ppocr,
         })
     return results
-
-
-@app.post("/predict/vehicles/video")
-def predict_vehicles_video(
-    file: UploadFile = File(...),
-    frame_stride: int = 1,
-):
-    """Detect+track vehicles across a video; return per-track vehicle data.
-
-    Mirrors /predict/plates/video but returns vehicle type + plate per track
-    (not fusion OCR). Tracking is maintained across frames (one track_id per
-    vehicle); the latest seen state for each track is returned. `frame_stride`
-    processes every Nth frame (speed vs coverage).
-    """
-    data = file.file.read()
-    frames = _read_video_frames(data)
-    if not frames:
-        raise HTTPException(status_code=400, detail="could not decode video")
-
-    stride = max(1, frame_stride)
-    traffic_service.reset()  # fresh track ids for this clip
-    tracks: dict[int, dict] = {}
-    for idx in range(0, len(frames), stride):
-        _ = traffic_service.process_frame(frames[idx])
-        for track_id, vehicle in traffic_service.vehicles.items():
-            entry = tracks.setdefault(int(track_id), {
-                "track_id": int(track_id), "frames_seen": 0,
-                "vehicle_type": None, "license_plate": None,
-                "confidence": None, "bbox": None, "plate_bbox": None,
-            })
-            entry["frames_seen"] += 1
-            b = vehicle.bbox_xyxy
-            entry["bbox"] = {"x1": float(b[0]), "y1": float(b[1]),
-                             "x2": float(b[2]), "y2": float(b[3])}
-            if vehicle.vehicle_type:
-                entry["vehicle_type"] = vehicle.vehicle_type
-            if vehicle.plate_number:
-                entry["license_plate"] = vehicle.plate_number
-                entry["confidence"] = float(vehicle.ocr_conf) if vehicle.ocr_conf > 0 else None
-            if vehicle.license_plate_bbox is not None:
-                pb = vehicle.license_plate_bbox
-                entry["plate_bbox"] = {"x1": float(pb[0]), "y1": float(pb[1]),
-                                       "x2": float(pb[2]), "y2": float(pb[3])}
-    return {"n_frames": len(frames), "stride": stride, "tracks": list(tracks.values())}
-
-
-@app.post("/predict/vehicles/image")
-def predict_vehicles_image(file: UploadFile = File(...)):
-    """Detect+track vehicles in one image; return per-track vehicle type + plate.
-
-    Single-image analogue of /predict/vehicles/video (same per-track schema).
-    Resets the tracker first (stateless single shot).
-    """
-    contents = file.file.read()
-    img = cv2.imdecode(np.frombuffer(contents, np.uint8), cv2.IMREAD_COLOR)
-    if img is None:
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    traffic_service.reset()
-    _ = traffic_service.process_frame(img)
-
-    tracks = []
-    for track_id, vehicle in traffic_service.vehicles.items():
-        b = vehicle.bbox_xyxy
-        entry = {
-            "track_id": int(track_id),
-            "vehicle_type": vehicle.vehicle_type or None,
-            "license_plate": vehicle.plate_number or None,
-            "confidence": float(vehicle.ocr_conf) if vehicle.ocr_conf > 0 else None,
-            "bbox": {"x1": float(b[0]), "y1": float(b[1]),
-                     "x2": float(b[2]), "y2": float(b[3])},
-            "plate_bbox": None,
-        }
-        if vehicle.license_plate_bbox is not None:
-            pb = vehicle.license_plate_bbox
-            entry["plate_bbox"] = {"x1": float(pb[0]), "y1": float(pb[1]),
-                                   "x2": float(pb[2]), "y2": float(pb[3])}
-        tracks.append(entry)
-    return {"tracks": tracks}
 
 
 if __name__ == "__main__":

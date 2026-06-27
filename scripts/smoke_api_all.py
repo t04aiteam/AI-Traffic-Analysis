@@ -85,14 +85,8 @@ def main():
     r = c.post(f"{MAIN}/reset")
     check("POST /reset", r.status_code == 200, str(r.status_code))
 
-    r = c.post(f"{MAIN}/predict/image", files={"file": ("s.jpg", img, "image/jpeg")})
-    check("POST /predict/image", r.status_code == 200 and "detections" in r.json(), str(r.status_code))
-
     r = c.post(f"{MAIN}/predict/frame?frame_number=1", files={"file": ("s.jpg", img, "image/jpeg")})
     check("POST /predict/frame", r.status_code == 200 and "detections" in r.json(), str(r.status_code))
-
-    r = c.post(f"{MAIN}/predict/vehicles/image", files={"file": ("s.jpg", img, "image/jpeg")})
-    check("POST /predict/vehicles/image", r.status_code == 200 and isinstance(r.json().get("tracks"), list), str(r.status_code))
 
     r = c.post(f"{MAIN}/predict/batch", files={"files": ("s.jpg", img, "image/jpeg")})
     check("POST /predict/batch (1 img -> jpeg)",
@@ -159,15 +153,6 @@ def main():
         check("POST /predict/plates/video", r.status_code == 200 and isinstance(r.json(), list), str(r.status_code))
     except Exception as e:
         check("POST /predict/plates/video", False, repr(e))
-
-    try:
-        with open(vpath, "rb") as fh:
-            r = c.post(f"{MAIN}/predict/vehicles/video?frame_stride=2",
-                       files={"file": ("v.mp4", fh.read(), "video/mp4")})
-        ok = r.status_code == 200 and isinstance(r.json().get("tracks"), list)
-        check("POST /predict/vehicles/video", ok, str(r.status_code))
-    except Exception as e:
-        check("POST /predict/vehicles/video", False, repr(e))
     os.unlink(vpath)
 
     label = "fusion (in-process)" if FUSION == MAIN else f"fusion sidecar {FUSION}"

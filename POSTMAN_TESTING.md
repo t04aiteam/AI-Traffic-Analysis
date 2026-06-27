@@ -52,15 +52,18 @@ No params. Send. Expect `200` and JSON like:
 
 No params. Returns the active weights, confidences, OCR + SR engine, language.
 
-### 2c. Predict image — `POST {{base_url}}/predict/image`
+### 2c. Predict batch — `POST {{base_url}}/predict/batch`
 
-- Method **POST**, URL `{{base_url}}/predict/image`.
-- **Body** tab → **form-data** → Key = `file`, change type _Text_ → **File**,
-  **Select Files** → pick a road image.
-- Send. Returns **JSON** with a `detections` list.
+- Method **POST**, URL `{{base_url}}/predict/batch`.
+- **Body** tab → **form-data** → Key = `files`, change type _Text_ → **File**,
+  **Select Files** → pick one or more images/videos/zips (add more `files` rows
+  for more inputs).
+- **Params** tab → `format` = `json` for JSON, or omit for annotated media.
+- Send. `format=json` → `{results:[...]}` with vehicle type + plate per source.
 
-> Field name is **`file`** (singular) for `image` / `frame` / `video`, but
-> **`files`** (plural) for the `batch` / `plates/batch` / `multiframe` endpoints.
+> Field name is **`file`** (singular) only for `/predict/frame` and
+> `/predict/plates/video`; everything else uses **`files`** (plural) and takes
+> 1..N files.
 
 ---
 
@@ -75,8 +78,8 @@ plate crop.
 | 2   | `GET /health` | — | — | `200`, `status:"healthy"` |
 | 3   | `GET /config` | — | — | `200`, weights/engines |
 | 4   | `POST /reset` | — | — | `200`, `{"status":"success"}` |
-| 5   | `POST /predict/image` | `file`=1 scene | — | `200`, `{detections:[...]}` |
-| 6   | `POST /predict/frame` | `file`=1 scene | `frame_number=7` | `200`, detections + `frame_count` |
+| 5   | `POST /predict/batch` | `files`=1 scene | `format=json` | `200`, `{results:[{kind:"image",detections:[...]}]}` |
+| 6   | `POST /predict/frame` | `file`=1 scene | `frame_number=7` | `200`, detections + `frame_count` (stateful) |
 | 7   | `POST /predict/batch` | `files`=1 scene | — | `200`, **annotated JPEG** |
 | 8   | `POST /predict/batch` | `files`=3 scenes | — | `200`, **ZIP** of `*_pred.jpg` |
 | 9   | `POST /predict/batch` | `files`=`.txt`/garbage | — | **`400`**, `no decodable images/videos in upload` |
@@ -92,38 +95,41 @@ plate crop.
 | 15  | `POST /fuse` | `files`=3 crops | `engine=mflpr2&scale=2` | `200`, **PNG** restored plate (no OCR) |
 | 16  | `POST /fuse` | `files`=3 crops | `engine=eott` | `200`, **PNG** binarized plate |
 | 17  | `POST /fuse` | `files`=3 crops | `engine=bogus` | **`400`**, `unknown engine: 'bogus'` |
-| 18  | `POST /predict/vehicles/video` | `file`=1 mp4 | `frame_stride=2` | `200`, `{n_frames, stride, tracks:[{track_id, vehicle_type, license_plate, ...}]}` |
-| 19  | `POST /predict/vehicles/image` | `file`=1 scene | — | `200`, `{tracks:[{track_id, vehicle_type, license_plate, ...}]}` |
 
-### `/predict/image` response (scenario 5) — what to check
+### `/predict/batch?format=json` response (scenario 5) — what to check
 
 ```json
 {
-  "detections": [
-    { "track_id": 1,
-      "bbox": { "x1": 220.0, "y1": 200.0, "x2": 420.0, "y2": 400.0 },
-      "vehicle_type": "car", "license_plate": "51A12345",
-      "plate_bbox": { "x1": 290.0, "y1": 360.0, "x2": 360.0, "y2": 390.0 },
-      "confidence": 0.87 }
+  "results": [
+    { "source": "scene.jpg", "kind": "image",
+      "detections": [
+        { "track_id": 1,
+          "bbox": { "x1": 220.0, "y1": 200.0, "x2": 420.0, "y2": 400.0 },
+          "vehicle_type": "car", "license_plate": "51A12345",
+          "plate_bbox": { "x1": 290.0, "y1": 360.0, "x2": 360.0, "y2": 390.0 },
+          "confidence": 0.87 }
+      ] }
   ]
 }
 ```
 
-`license_plate`/`plate_bbox`/`confidence` may be `null` when no plate is read.
+For a video source, `kind` is `"video"` with `n_frames`, `stride`, and a
+`tracks` list instead of `detections`. `license_plate`/`plate_bbox`/`confidence`
+may be `null` when no plate is read.
 
-### `image` vs `frame`
+### `batch` vs `frame`
 
-`image` **resets the tracker** every call (stateless single shots). `frame`
-**keeps** tracking state, so `track_id`s persist across a sequence — call
-`POST /reset` before starting an unrelated clip.
+`/predict/batch` is **stateless** — it resets the tracker per file. `/predict/frame`
+**keeps** tracking state, so `track_id`s persist across calls when you feed a
+sequence frame-by-frame — call `POST /reset` before starting an unrelated clip.
 
 ---
 
 ## 4. Handling responses
 
-- **JSON** (`/`, `/health`, `/config`, `/reset`, `/predict/image`, `/predict/frame`,
-  `/predict/plates/multiframe`, `/predict/plates/video`): read directly in the
-  response pane.
+- **JSON** (`/`, `/health`, `/config`, `/reset`, `/predict/frame`,
+  `/predict/batch?format=json`, `/predict/plates/multiframe`,
+  `/predict/plates/video`): read directly in the response pane.
 - **Image** (`/predict/batch`, `/predict/plates/batch` with 1 file → JPEG;
   `/fuse` → PNG): the **Preview** tab renders it. Save via **⋯ / Save Response →
   Save to a file** (`.jpg` / `.png`).
@@ -140,7 +146,6 @@ plate crop.
 | `/predict/frame` | `frame_number` | int | reference number echoed back as `frame_count` |
 | `/predict/batch` | `format` | `media`\|`json` | annotated images/mp4 (default) or JSON detections/tracks |
 | `/predict/batch` | `frame_stride` | int | for video inputs: process every Nth frame (default 1) |
-| `/predict/vehicles/video` | `frame_stride` | int | process every Nth frame (speed vs coverage; default 1) |
 | `multiframe` / `video` / `fuse` | `engine` | `mflpr2`\|`eott` | fusion engine (default `mflpr2`); `eott` outputs binarized |
 | `multiframe` / `video` / `fuse` | `scale` | int | upscale factor — applied by `mflpr2`, **ignored by `eott`** |
 | `multiframe` / `video` | `max_frames` | int | cap on crops/frames fused (default 32) |
@@ -159,12 +164,12 @@ When something looks wrong, capture for the dev:
 
 Common, **not-a-bug** results:
 
-- `400 Invalid image file` / `No valid images in batch` → file wasn't a decodable image.
+- `400 no decodable images/videos in upload` → no file decoded as an image/video.
 - `400 unknown engine '...'` → `engine` must be `mflpr2` or `eott`.
 - `500 <engine> failed: ...` on `/fuse` → crops were different sizes; crop them
   to the same size (`/predict/plates/multiframe` auto-resizes, `/fuse` does not).
 - `/predict/plates/video` returns **`[]`** → no plate track met `min_frames`; try
   a longer clip or lower `min_frames`.
 - First request is **slow** → model warm-up (YOLO + OCR lazy-load); retry.
-- `track_id`s reset between frames → you hit `/predict/image` (stateless). Use
-  `/predict/frame` for a sequence.
+- `track_id`s reset between frames → `/predict/batch` is stateless (resets per
+  file). Use `/predict/frame` for a live sequence.

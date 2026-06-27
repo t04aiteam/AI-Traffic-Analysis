@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Traffic AI Service API",
-    "description": "Vehicle/plate detection, tracking, and license-plate OCR. 13 endpoints, all on one port (fusion runs in-process — no sidecar). Set the collection variable base_url to your server. Re-attach files on each request (Postman does not store file contents).",
+    "description": "Vehicle/plate detection, tracking, and license-plate OCR. 10 endpoints, all on one port (fusion runs in-process — no sidecar). Set the collection variable base_url to your server. Re-attach files on each request (Postman does not store file contents).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -27,14 +27,6 @@
       "name": "Reset tracker",
       "request": { "method": "POST", "header": [],
         "url": { "raw": "{{base_url}}/reset", "host": ["{{base_url}}"], "path": ["reset"] } }
-    },
-    {
-      "name": "Predict image (JSON detections)",
-      "request": {
-        "method": "POST", "header": [],
-        "body": { "mode": "formdata", "formdata": [ { "key": "file", "type": "file", "src": [] } ] },
-        "url": { "raw": "{{base_url}}/predict/image", "host": ["{{base_url}}"], "path": ["predict", "image"] }
-      }
     },
     {
       "name": "Predict frame (keeps tracking)",
@@ -108,26 +100,6 @@
             { "key": "min_frames", "value": "8", "disabled": true },
             { "key": "max_frames", "value": "32", "disabled": true }
           ]
-        }
-      }
-    },
-    {
-      "name": "Predict vehicles image (type + plate per track)",
-      "request": {
-        "method": "POST", "header": [],
-        "body": { "mode": "formdata", "formdata": [ { "key": "file", "type": "file", "src": [] } ] },
-        "url": { "raw": "{{base_url}}/predict/vehicles/image", "host": ["{{base_url}}"], "path": ["predict", "vehicles", "image"] }
-      }
-    },
-    {
-      "name": "Predict vehicles video (type + plate per track)",
-      "request": {
-        "method": "POST", "header": [],
-        "body": { "mode": "formdata", "formdata": [ { "key": "file", "type": "file", "src": [] } ] },
-        "url": {
-          "raw": "{{base_url}}/predict/vehicles/video?frame_stride=1",
-          "host": ["{{base_url}}"], "path": ["predict", "vehicles", "video"],
-          "query": [ { "key": "frame_stride", "value": "1" } ]
         }
       }
     },
