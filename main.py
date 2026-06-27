@@ -295,21 +295,44 @@ async def get_config():
 _IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff", ".gif"}
 _VID_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
 
+# Anti-DoS limits for the smart-input expander (zip bombs / oversized media).
+_MAX_ZIP_DEPTH = 2                       # nested-zip recursion cap
+_MAX_MEMBERS = 500                       # total files expanded per request
+_MAX_ENTRY_BYTES = 300 * 1024 * 1024     # per zip member (uncompressed)
+_MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024  # summed uncompressed across request
 
-def _expand_one(name, raw):
+
+def _expand_one(name, raw, depth=0, budget=None):
     """Yield (source_name, kind, payload) for one file. kind: 'image' (ndarray)
-    or 'video' (list of frames). Zips are extracted recursively; unknown
-    extensions are sniffed by trying image- then video-decode."""
+    or 'video' (list of frames). Zips are extracted recursively under hard
+    depth/count/size caps (zip-bomb guard); unknown extensions are sniffed by
+    trying image- then video-decode."""
+    if budget is None:
+        budget = {"bytes": 0, "members": 0}
     ext = os.path.splitext(name)[1].lower()
     if ext == ".zip":
+        if depth >= _MAX_ZIP_DEPTH:
+            logger.warning("zip nesting too deep, skipping %s", name)
+            return
         try:
             zf = zipfile.ZipFile(io.BytesIO(raw))
         except Exception:
             return
-        for n in zf.namelist():
-            if n.endswith("/"):
+        for info in zf.infolist():
+            if info.is_dir():
                 continue
-            yield from _expand_one(n, zf.read(n))
+            budget["members"] += 1
+            if budget["members"] > _MAX_MEMBERS:
+                logger.warning("zip member cap (%d) hit, stopping", _MAX_MEMBERS)
+                return
+            if info.file_size > _MAX_ENTRY_BYTES:
+                logger.warning("zip member %s too large (%d), skipping", info.filename, info.file_size)
+                continue
+            budget["bytes"] += info.file_size
+            if budget["bytes"] > _MAX_TOTAL_BYTES:
+                logger.warning("zip total size cap hit, stopping")
+                return
+            yield from _expand_one(info.filename, zf.read(info), depth + 1, budget)
         return
     if ext in _IMG_EXT or ext not in _VID_EXT:          # image, or sniff unknown
         arr = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
@@ -325,8 +348,9 @@ def _expand_one(name, raw):
 
 
 def _expand_inputs(uploads):
+    budget = {"bytes": 0, "members": 0}
     for up in uploads:
-        yield from _expand_one(up.filename or "file", up.file.read())
+        yield from _expand_one(up.filename or "file", up.file.read(), 0, budget)
 
 
 def _vehicle_entry(track_id, vehicle):
@@ -367,19 +391,24 @@ def _tracks_video(name, frames, stride):
 
 
 def _annotate_video(frames, stride):
-    """Annotate (detect) every Nth frame, write an mp4, return its bytes."""
+    """Annotate (detect) every Nth frame, write an mp4, return its bytes.
+
+    The temp file is unlinked unconditionally, even if annotation raises."""
     h, w = frames[0].shape[:2]
     out_path = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
     vw = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), 20, (w, h))
     try:
         for idx in range(0, len(frames), stride):
             vw.write(traffic_service.detect_vehicles_only(frames[idx]))
-    finally:
         vw.release()
-    with open(out_path, "rb") as fh:
-        data = fh.read()
-    os.unlink(out_path)
-    return data
+        with open(out_path, "rb") as fh:
+            return fh.read()
+    finally:
+        vw.release()  # idempotent; ensures release even on exception
+        try:
+            os.unlink(out_path)
+        except FileNotFoundError:
+            pass
 
 
 @app.post("/predict/batch")
@@ -612,14 +641,20 @@ def fuse_plates(
     return StreamingResponse(io.BytesIO(buf.tobytes()), media_type="image/png")
 
 
+_MAX_VIDEO_FRAMES = 9000  # ~5 min at 30fps; bounds memory/CPU per request
+
+
 def _read_video_frames(data: bytes):
-    """Decode video bytes into a list of BGR frames via a temp file."""
+    """Decode video bytes into a list of BGR frames via a temp file.
+
+    Caps at _MAX_VIDEO_FRAMES to bound memory/CPU on huge or crafted inputs.
+    The temp file is auto-removed by the NamedTemporaryFile context manager."""
     frames = []
     with tempfile.NamedTemporaryFile(suffix=".mp4") as tmp:
         tmp.write(data)
         tmp.flush()
         cap = cv2.VideoCapture(tmp.name)
-        while True:
+        while len(frames) < _MAX_VIDEO_FRAMES:
             ok, frame = cap.read()
             if not ok:
                 break
