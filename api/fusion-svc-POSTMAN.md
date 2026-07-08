@@ -1,27 +1,41 @@
 # Testing the fusion-svc API with Postman
 
 A step-by-step guide for QA/testers. No coding needed. The API is the FastAPI
-sidecar in [`fusion_svc/app.py`](fusion_svc/app.py) (see [`API.md`](API.md) for
-the developer reference). It has **2 endpoints**: `GET /health`, `POST /fuse`.
+sidecar in [`fusion_svc/app.py`](../fusion_svc/app.py) (see
+[`fusion-svc-API.md`](fusion-svc-API.md) for the developer reference). It has
+**2 endpoints**: `GET /health`, `POST /fuse`.
 
 `/fuse` merges a **burst of crops of one license plate** into a single restored
 plate image (PNG). You upload N same-size crops; you get one fused plate back.
-
-You can either **import the ready-made collection** (fastest) or build the
-requests by hand. Both are covered.
 
 > **Direct vs via main API.** This guide tests the sidecar **directly** (port
 > `8100`), which returns the fused plate **image**. The **main traffic API**
 > (port `7862`) also reaches these engines through `POST /predict/plates/multiframe`
 > and `POST /predict/plates/video`, but returns **OCR text (JSON)** instead of an
 > image and auto-resizes the burst. Test those against `7862`, not `8100`.
+>
+> This sidecar is **optional** — the main API runs these engines in-process by
+> default. Start it only if you specifically want to test fusion in isolation.
+
+## 0. Start the API (standalone sidecar)
+
+```bash
+git submodule update --init --recursive      # fresh clone only
+uv sync --directory fusion_svc
+uv run --directory fusion_svc uvicorn fusion_svc.app:app --host 127.0.0.1 --port 8100
+```
+
+Confirm it's up: `GET http://127.0.0.1:8100/health` → `{"status":"ok"}`.
+
+You can either **import the ready-made collection** (fastest) or build the
+requests by hand. Both are covered.
 
 ---
 
 ## 1. Import the collection (recommended)
 
 1. In Postman: **File → Import** (or the **Import** button, top-left).
-2. Select **[`fusion_svc/fusion-svc.postman_collection.json`](fusion-svc.postman_collection.json)**
+2. Select **[`fusion-svc.postman_collection.json`](fusion-svc.postman_collection.json)**
    from this repo.
 3. A collection **"fusion-svc API"** appears in the left sidebar with all
    requests pre-built.

@@ -1,27 +1,41 @@
 # Kiểm thử API fusion-svc bằng Postman
 
 Hướng dẫn từng bước cho QA/tester. Không cần lập trình. API là sidecar FastAPI
-trong [`fusion_svc/app.py`](fusion_svc/app.py) (xem [`API.md`](API.md) để tham
-khảo cho dev). Có **2 endpoint**: `GET /health`, `POST /fuse`.
+trong [`fusion_svc/app.py`](../fusion_svc/app.py) (xem
+[`fusion-svc-API.md`](fusion-svc-API.md) để tham khảo cho dev). Có
+**2 endpoint**: `GET /health`, `POST /fuse`.
 
 `/fuse` gộp một **chuỗi (burst) crop của cùng một biển số** thành một ảnh biển số
 đã phục dựng (PNG). Bạn upload N crop cùng kích thước; nhận lại một ảnh biển số đã gộp.
-
-Bạn có thể **import collection dựng sẵn** (nhanh nhất) hoặc tự tạo request bằng
-tay. Cả hai đều được hướng dẫn.
 
 > **Trực tiếp vs qua main API.** Hướng dẫn này test sidecar **trực tiếp** (cổng
 > `8100`), trả về **ảnh** biển số đã gộp. **Main traffic API** (cổng `7862`)
 > cũng dùng các engine này qua `POST /predict/plates/multiframe` và
 > `POST /predict/plates/video`, nhưng trả về **văn bản OCR (JSON)** thay vì ảnh
 > và tự resize burst. Test các endpoint đó với `7862`, không phải `8100`.
+>
+> Sidecar này là **tùy chọn** — main API mặc định chạy các engine này in-process.
+> Chỉ khởi động sidecar nếu bạn muốn test gộp biển riêng biệt.
+
+## 0. Khởi động API (sidecar độc lập)
+
+```bash
+git submodule update --init --recursive      # chỉ cần khi clone mới
+uv sync --directory fusion_svc
+uv run --directory fusion_svc uvicorn fusion_svc.app:app --host 127.0.0.1 --port 8100
+```
+
+Xác nhận đã chạy: `GET http://127.0.0.1:8100/health` → `{"status":"ok"}`.
+
+Bạn có thể **import collection dựng sẵn** (nhanh nhất) hoặc tự tạo request bằng
+tay. Cả hai đều được hướng dẫn.
 
 ---
 
 ## 1. Import collection (khuyến nghị)
 
 1. Trong Postman: **File → Import** (hoặc nút **Import** ở góc trên bên trái).
-2. Chọn file **[`fusion_svc/fusion-svc.postman_collection.json`](fusion-svc.postman_collection.json)**
+2. Chọn file **[`fusion-svc.postman_collection.json`](fusion-svc.postman_collection.json)**
    từ repo này.
 3. Một collection **"fusion-svc API"** xuất hiện ở thanh bên trái với đầy đủ
    request đã dựng sẵn.

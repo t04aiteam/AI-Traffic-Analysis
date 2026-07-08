@@ -2,9 +2,23 @@
 
 FastAPI **plate-fusion sidecar**: takes a burst of crops of *one* license plate
 and merges them into a single restored plate image. Image-only — no OCR, no
-torch, no paddle. Source: [`fusion_svc/app.py`](fusion_svc/app.py). Adapters:
-[`mflpr2_adapter.py`](fusion_svc/adapters/mflpr2_adapter.py) /
-[`eott_adapter.py`](fusion_svc/adapters/eott_adapter.py).
+torch, no paddle. Source: [`fusion_svc/app.py`](../fusion_svc/app.py). Adapters:
+[`mflpr2_adapter.py`](../fusion_svc/adapters/mflpr2_adapter.py) /
+[`eott_adapter.py`](../fusion_svc/adapters/eott_adapter.py).
+
+**This is optional** — by default the main traffic API (port `7862`) runs these
+same engines in-process, no sidecar needed. Run this standalone app only if you
+want fusion crash-isolated in a separate process/venv (port `8100`).
+
+## Start the API (standalone, optional)
+
+```bash
+git submodule update --init --recursive      # fresh clone only
+uv sync --directory fusion_svc
+uv run --directory fusion_svc uvicorn fusion_svc.app:app --host 127.0.0.1 --port 8100
+```
+
+Swagger UI: `http://127.0.0.1:8100/docs`. See [Install](#install-one-time) / [Run](#run) below for details.
 
 ## Install (one-time)
 

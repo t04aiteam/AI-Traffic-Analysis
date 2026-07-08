@@ -1,13 +1,23 @@
 # Testing the Traffic AI API with Postman
 
 A step-by-step guide for QA/testers. No coding needed. The API is the FastAPI
-service in [`main.py`](main.py) (see [`API.md`](API.md) for the developer
-reference). It has **11 endpoints** for vehicle/plate detection, tracking,
-license-plate OCR, and plate fusion.
+service in [`main.py`](../main.py) (see [`traffic-ai-API.md`](traffic-ai-API.md)
+for the developer reference). It has **10 endpoints** for vehicle/plate
+detection, tracking, license-plate OCR, and plate fusion.
 
 > All endpoints run on **one port** (default `7862`). Multi-frame fusion
 > (`/fuse`, `/predict/plates/multiframe`, `/predict/plates/video`) runs
 > in-process — no sidecar to start.
+
+## 0. Start the API
+
+```bash
+uv sync                              # main deps
+scripts/install_fusion_inproc.sh     # vendored mf-lpr2 + eott (needed for the fusion endpoints)
+uv run main.py                       # binds 0.0.0.0:7862
+```
+
+Confirm it's up: `GET http://127.0.0.1:7862/health` → `200`.
 
 You can either **import the ready-made collection** (fastest) or build the
 requests by hand. Both are covered.

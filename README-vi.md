@@ -5,10 +5,10 @@
 <h1 align="center">TonAI Vision Lab - TrafficCam</h1>
 
 <p align="center">
-  <strong>License Plate Recognition (ALPR) and Traffic Surveillance System</strong>
+  <strong>Hệ thống Nhận diện Biển số xe (ALPR) và Giám sát Giao thông</strong>
 </p>
 
-## Start the API
+## Khởi động API
 
 ```bash
 uv sync                              # main deps
@@ -16,82 +16,87 @@ scripts/install_fusion_inproc.sh     # vendored mf-lpr2 + eott (needed for the f
 uv run main.py                       # binds 0.0.0.0:7862
 ```
 
-Swagger UI: `http://localhost:7862/docs`. See [Quick Start](#quick-start) below
-for the Docker option and full setup.
+Swagger UI: `http://localhost:7862/docs`. Xem [Bắt đầu nhanh](#bắt-đầu-nhanh) bên
+dưới để biết tùy chọn Docker và cách cài đặt đầy đủ.
 
 ---
 
-## Table of Contents
-- [Overview](#overview)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [API Service](#api-service)
-  - [Configuration](#configuration)
-  - [API Endpoints](#api-endpoints)
-  - [Usage Examples](#usage-examples)
-- [Multi-Frame Plate Fusion](#multi-frame-plate-fusion)
-- [Training Models](#training-models)
+## Mục lục
+- [Tổng quan](#tổng-quan)
+- [Tính năng](#tính-năng)
+- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
+- [Bắt đầu nhanh](#bắt-đầu-nhanh)
+- [Kiến trúc](#kiến-trúc)
+- [Cấu trúc dự án](#cấu-trúc-dự-án)
+- [Dịch vụ API](#dịch-vụ-api)
+  - [Cấu hình](#cấu-hình)
+  - [Endpoint API](#endpoint-api)
+  - [Ví dụ sử dụng](#ví-dụ-sử-dụng)
+- [Gộp biển số đa khung hình](#gộp-biển-số-đa-khung-hình)
+- [Huấn luyện Model](#huấn-luyện-model)
 - [Model Zoo](#model-zoo)
-- [Model Weights](#model-weights)
-- [Data Management](#data-management)
-- [Dataset Download](#dataset-download)
-- [WebApp Interface](#webapp-interface)
-- [Docker Deployment](#docker-deployment)
-- [Development](#development)
-- [Citation](#citation)
+- [Trọng số Model](#trọng-số-model)
+- [Quản lý dữ liệu](#quản-lý-dữ-liệu)
+- [Tải Dataset](#tải-dataset)
+- [Giao diện WebApp](#giao-diện-webapp)
+- [Triển khai Docker](#triển-khai-docker)
+- [Phát triển](#phát-triển)
+- [Trích dẫn](#trích-dẫn)
 
 ---
 
-## Overview
+## Tổng quan
 
-TrafficCam is a comprehensive traffic surveillance and license plate recognition system built on modern deep learning technologies. The system has been refactored into a clean, modular architecture:
+TrafficCam là một hệ thống giám sát giao thông và nhận diện biển số xe toàn
+diện, được xây dựng trên các công nghệ deep learning hiện đại. Hệ thống đã
+được tái cấu trúc (refactor) thành một kiến trúc module rõ ràng:
 
-- **FastAPI Service**: JSON-based REST API for vehicle and license plate detection
-- **Core ALPR Engine**: Shared processing logic for detection, tracking, and OCR
-- **Web Application**: Real-time visualization interface (beta)
-- **Modular Design**: Clean separation between API, processing, and visualization
+- **FastAPI Service**: REST API dựa trên JSON để phát hiện xe và biển số xe
+- **Core ALPR Engine**: Logic xử lý dùng chung cho phát hiện, theo dõi
+  (tracking) và OCR
+- **Web Application**: Giao diện trực quan hóa thời gian thực (bản beta)
+- **Modular Design**: Tách biệt rõ ràng giữa API, xử lý và trực quan hóa
 
-**Latest Updates:**
-- **January 2026**: Refactored to FastAPI service with JSON API
-- **August 2025**: PPOCRv5 and Web App (beta version) for testing
-- **July 2024**: PPOCRv4 with text detection for improved plate recognition
-- **November 2023**: TensorRT inference and ONNX model support
+**Cập nhật mới nhất:**
+- **Tháng 1/2026**: Tái cấu trúc thành dịch vụ FastAPI với API JSON
+- **Tháng 8/2025**: PPOCRv5 và Web App (bản beta) để kiểm thử
+- **Tháng 7/2024**: PPOCRv4 kèm text detection giúp nhận diện biển số tốt hơn
+- **Tháng 11/2023**: Hỗ trợ inference TensorRT và model ONNX
 
 ---
 
-## Features
+## Tính năng
 
-### Completed ✅
-- **Vehicle Detection**: YOLO-based multi-class vehicle detection (cars, trucks, buses, motorcycles, bicycles)
-- **License Plate Detection**: High-accuracy plate detection in various conditions
-- **OCR Recognition**: PaddleOCR v4/v5 for text recognition
-- **Object Tracking**: SORT and DeepSORT tracking algorithms
-- **Multiple Formats**: PyTorch (.pt) and ONNX (.onnx) model support
-- **TensorRT Optimization**: Accelerated inference with TensorRT
-- **REST API**: FastAPI-based service with JSON responses
-- **Web Interface**: Real-time visualization with WebRTC support
+### Đã hoàn thành ✅
+- **Vehicle Detection**: Phát hiện xe đa lớp dựa trên YOLO (ô tô, xe tải, xe
+  buýt, xe máy, xe đạp)
+- **License Plate Detection**: Phát hiện biển số độ chính xác cao trong nhiều
+  điều kiện
+- **OCR Recognition**: PaddleOCR v4/v5 để nhận diện văn bản
+- **Object Tracking**: Thuật toán theo dõi SORT và DeepSORT
+- **Multiple Formats**: Hỗ trợ model PyTorch (.pt) và ONNX (.onnx)
+- **TensorRT Optimization**: Tăng tốc inference với TensorRT
+- **REST API**: Dịch vụ dựa trên FastAPI với phản hồi JSON
+- **Web Interface**: Trực quan hóa thời gian thực với hỗ trợ WebRTC
 
-### In Progress 🚧
-- Vision Language Model integration
+### Đang thực hiện 🚧
+- Tích hợp Vision Language Model
 - AutoLabel Pipeline
 
 ---
 
-## Prerequisites
+## Yêu cầu hệ thống
 
-- **Operating System**: Ubuntu 20.04 or later (Linux recommended)
+- **Hệ điều hành**: Ubuntu 20.04 trở lên (khuyến nghị dùng Linux)
 - **Python**: 3.9 - 3.12
-- **GPU**: NVIDIA GPU with CUDA support (recommended for production)
-- **Storage**: Sufficient space for model weights (~2GB)
+- **GPU**: NVIDIA GPU hỗ trợ CUDA (khuyến nghị cho production)
+- **Bộ nhớ lưu trữ**: Đủ dung lượng cho model weights (~2GB)
 
 ---
 
-## Quick Start
+## Bắt đầu nhanh
 
-### Option 1: Using Docker (Recommended)
+### Lựa chọn 1: Dùng Docker (khuyến nghị)
 
 ```bash
 docker compose up -d
@@ -99,13 +104,13 @@ docker compose logs -f
 docker compose down
 ```
 
-**Services will be available at:**
+**Các dịch vụ sẽ chạy tại:**
 - Analysis API: http://localhost:7862 (Swagger: http://localhost:7862/docs)
 - WebApp: http://localhost:7863
 
-### Option 2: Manual Installation
+### Lựa chọn 2: Cài đặt thủ công
 
-### 1. Installation
+### 1. Cài đặt
 
 ```bash
 # Install dependencies (uv, recommended)
@@ -116,7 +121,7 @@ scripts/install_fusion_inproc.sh   # vendored mf-lpr2 + eott, for the fusion end
 pip install -r requirements.txt
 ```
 
-### 2. Start API Service
+### 2. Khởi động dịch vụ API
 
 ```bash
 uv run main.py
@@ -125,9 +130,9 @@ uv run main.py
 uv run uvicorn main:app --host 0.0.0.0 --port 7862
 ```
 
-The service will start on `http://localhost:7862`
+Dịch vụ sẽ khởi động tại `http://localhost:7862`
 
-### 3. Test the Service
+### 3. Kiểm tra dịch vụ
 
 ```bash
 # Health check
@@ -141,13 +146,13 @@ uv run client_example.py --health
 uv run client_example.py --video path/to/video.mp4
 ```
 
-### 4. Interactive API Documentation
+### 4. Tài liệu API tương tác
 - **Swagger UI**: http://localhost:7862/docs
 - **ReDoc**: http://localhost:7862/redoc
 
 ---
 
-## Architecture
+## Kiến trúc
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -195,7 +200,7 @@ uv run client_example.py --video path/to/video.mp4
 
 ---
 
-## Project Structure
+## Cấu trúc dự án
 
 ```
 license-plate-recognition/
@@ -239,11 +244,11 @@ license-plate-recognition/
 
 ---
 
-## API Service
+## Dịch vụ API
 
-### Configuration
+### Cấu hình
 
-The service is configured using environment variables:
+Dịch vụ được cấu hình thông qua biến môi trường:
 
 ```bash
 # Device configuration
@@ -276,30 +281,30 @@ export HOST=0.0.0.0
 export PORT=7862
 ```
 
-### API Endpoints
+### Endpoint API
 
-| Endpoint | Method | Description |
+| Endpoint | Method | Mô tả |
 |----------|--------|-------------|
-| `/` | GET | Service information and available endpoints |
-| `/health` | GET | Health check and configuration status |
-| `/predict/frame` | POST | Process video frame (maintains tracking state across calls) |
-| `/predict/batch` | POST | N images/videos/zips → annotated media (1→JPEG/MP4, N→ZIP) or JSON (`?format=json`) |
-| `/predict/plates/batch` | POST | Plate-detect N images, dual-OCR (FAST + PPOCRv6) → annotated JPEG/ZIP |
-| `/predict/plates/multiframe` | POST | Fuse a burst of one plate's crops → dual-OCR the restored plate |
-| `/predict/plates/video` | POST | Detect+track plates in a video, fuse each track's burst, dual-OCR |
-| `/fuse` | POST | Fuse a burst of crops → restored plate image (PNG), no OCR |
-| `/reset` | POST | Reset tracker state |
-| `/config` | GET | Get current configuration |
+| `/` | GET | Thông tin dịch vụ và danh sách endpoint có sẵn |
+| `/health` | GET | Health check và trạng thái cấu hình |
+| `/predict/frame` | POST | Xử lý một frame video (giữ trạng thái tracking qua các lần gọi) |
+| `/predict/batch` | POST | N ảnh/video/zip → media đã chú thích (1→JPEG/MP4, N→ZIP) hoặc JSON (`?format=json`) |
+| `/predict/plates/batch` | POST | Phát hiện biển số trên N ảnh, dual-OCR (FAST + PPOCRv6) → JPEG/ZIP đã chú thích |
+| `/predict/plates/multiframe` | POST | Gộp một chuỗi (burst) crop của một biển số → dual-OCR biển số đã phục dựng |
+| `/predict/plates/video` | POST | Phát hiện+theo dõi biển số trong video, gộp burst của từng track, dual-OCR |
+| `/fuse` | POST | Gộp một chuỗi crop → ảnh biển số đã phục dựng (PNG), không OCR |
+| `/reset` | POST | Reset trạng thái tracker |
+| `/config` | GET | Lấy cấu hình hiện tại |
 
-> There's no standalone `/predict/image` — for a one-off single image, use
-> `/predict/batch` with one file (`?format=json` for JSON instead of an
-> annotated image).
+> Không có endpoint `/predict/image` riêng — với một ảnh đơn lẻ, dùng
+> `/predict/batch` với một file (`?format=json` để nhận JSON thay vì ảnh
+> đã chú thích).
 >
-> Multi-frame fusion (`/fuse`, `/predict/plates/multiframe`, `/predict/plates/video`)
-> runs **in-process** by default — no sidecar needed (see
-> [Multi-Frame Plate Fusion](#multi-frame-plate-fusion)).
+> Gộp đa khung hình (`/fuse`, `/predict/plates/multiframe`, `/predict/plates/video`)
+> mặc định chạy **in-process** — không cần sidecar (xem
+> [Gộp biển số đa khung hình](#gộp-biển-số-đa-khung-hình)).
 
-### Response Format
+### Định dạng phản hồi
 
 ```json
 {
@@ -327,9 +332,9 @@ export PORT=7862
 }
 ```
 
-### Usage Examples
+### Ví dụ sử dụng
 
-#### Using cURL
+#### Dùng cURL
 
 ```bash
 # Health check
@@ -349,7 +354,7 @@ curl -X POST http://localhost:7862/reset
 curl http://localhost:7862/config
 ```
 
-#### Using Python
+#### Dùng Python
 
 ```python
 import requests
@@ -400,7 +405,7 @@ while cap.isOpened():
 cap.release()
 ```
 
-#### Using Example Client
+#### Dùng Example Client
 
 ```bash
 # Health check
@@ -418,16 +423,17 @@ uv run client_example.py --config
 
 ---
 
-## Multi-Frame Plate Fusion
+## Gộp biển số đa khung hình
 
-Low-resolution plates are often illegible in any single frame. The fusion
-feature takes a **burst of crops of the same plate** (8–32 frames), merges
-them into one restored plate, then runs dual-OCR (FAST + PPOCRv6).
+Biển số độ phân giải thấp thường không đọc được trong một frame đơn lẻ. Tính
+năng gộp (fusion) lấy một **chuỗi (burst) crop của cùng một biển số** (8–32
+frame), gộp chúng thành một biển số đã phục dựng, rồi chạy dual-OCR (FAST +
+PPOCRv6).
 
-### Architecture
+### Kiến trúc
 
-Fusion runs **in-process** on the main API, one process on one port — no
-sidecar to start by default:
+Gộp biển chạy **in-process** trên API chính, một process trên một cổng —
+mặc định không cần khởi động sidecar:
 
 ```
 main API (7862) ──in-process──> mf-lpr2 / eott adapters
@@ -435,18 +441,18 @@ main API (7862) ──in-process──> mf-lpr2 / eott adapters
   dual-OCR restored plate    engines: mflpr2 (mf-lpr2), eott
 ```
 
-The engines are vendored as git submodules under `fusion_svc/external/` and
-installed **into the main venv** (not a separate one) via
-`scripts/install_fusion_inproc.sh` — a fresh clone needs
-`git submodule update --init --recursive` first. `utils/fusion_client.py`
-calls the adapters directly (no HTTP).
+Các engine được vendor dưới dạng git submodule tại `fusion_svc/external/` và
+được cài **vào venv chính** (không phải venv riêng) qua
+`scripts/install_fusion_inproc.sh` — với clone mới cần chạy
+`git submodule update --init --recursive` trước. `utils/fusion_client.py`
+gọi trực tiếp các adapter (không qua HTTP).
 
-`fusion_svc/` also ships as an **optional standalone app** (its own `.venv`,
-port 8100) if you want fusion crash-isolated in a separate process — see
-[`api/fusion-svc-API.md`](api/fusion-svc-API.md). Point the main API at it
-with `FUSION_URL` in that split mode.
+`fusion_svc/` cũng có thể chạy như một **ứng dụng standalone tùy chọn** (có
+`.venv` riêng, cổng 8100) nếu bạn muốn cô lập gộp biển ở một process riêng để
+tránh crash lan — xem [`api/fusion-svc-API.md`](api/fusion-svc-API.md). Trỏ
+API chính về đó bằng `FUSION_URL` ở chế độ tách rời này.
 
-### Running
+### Chạy
 
 ```bash
 # Fresh clone only: fetch the engine submodules
@@ -459,7 +465,7 @@ scripts/install_fusion_inproc.sh     # vendors mf-lpr2 + eott into this venv
 uv run main.py                       # single process, port 7862
 ```
 
-### Endpoints
+### Các Endpoint
 
 ```bash
 # Multiframe: send N crops of ONE plate
@@ -475,28 +481,29 @@ curl -X POST "http://localhost:7862/fuse?engine=mflpr2&scale=2" \
   -F "files=@01.png" -F "files=@02.png" -o fused.png
 ```
 
-Params: `engine` (`mflpr2` | `eott`), `scale` (upscale factor, default 1),
-`max_frames` (default 32), `min_frames` (video only, default 8).
+Tham số: `engine` (`mflpr2` | `eott`), `scale` (hệ số phóng to, mặc định 1),
+`max_frames` (mặc định 32), `min_frames` (chỉ cho video, mặc định 8).
 
-### Benchmark notes (RLPR sample plates, 31 crops/plate)
+### Ghi chú benchmark (mẫu biển RLPR, 31 crop/biển)
 
-- **Quality is gated by input crop legibility, not the fusion engine.** A
-  high-contrast burst → PPOCRv6 near-perfect; a ~30px illegible burst →
-  fusion sharpens but OCR still misses.
-- **PPOCRv6 ≫ FAST** on these plates.
-- **`mflpr2` vs `eott`:** `mflpr2` restores cleaner; `eott` occasionally edges
-  it on OCR of already-legible bursts. Default to `mflpr2`.
-- **Do NOT pre-apply super-resolution before fusion.** Feeding SR'd frames
-  clips highlights and *degrades* OCR (8→0 flips observed), and is 8–40×
-  slower. mf-lpr2/eott already upscale — fuse **raw** crops.
+- **Chất lượng bị giới hạn bởi độ rõ nét của crop đầu vào, không phải bởi
+  engine gộp.** Một burst tương phản cao → PPOCRv6 gần như hoàn hảo; một
+  burst ~30px không đọc được → gộp làm nét hơn nhưng OCR vẫn đọc sai.
+- **PPOCRv6 ≫ FAST** trên các biển số này.
+- **`mflpr2` vs `eott`:** `mflpr2` phục dựng sạch hơn; `eott` đôi khi nhỉnh
+  hơn về OCR với các burst vốn đã rõ nét. Mặc định dùng `mflpr2`.
+- **KHÔNG áp dụng super-resolution trước khi gộp.** Nạp frame đã qua SR làm
+  clip vùng sáng và *làm giảm* chất lượng OCR (quan sát thấy đảo 8→0), và
+  chậm hơn 8–40×. mf-lpr2/eott đã tự upscale sẵn — hãy gộp crop **thô
+  (raw)**.
 
 ---
 
-## Training Models
+## Huấn luyện Model
 
-### Train Ultralytics YOLO
+### Huấn luyện YOLO Ultralytics
 
-Train a detector directly from the CLI:
+Huấn luyện một detector trực tiếp từ CLI:
 
 ```bash
 # Using bash wrapper
@@ -518,17 +525,18 @@ uv run detectors/yolo/train_ultralytics.py \
   --device 0
 ```
 
-**Common Arguments:**
-- `--data`: Path to `data.yaml` (e.g., `data/LP-11k/data.yaml`)
-- `--model`: YOLO config or weights (e.g., `yolov8n.yaml`, `yolov8s.pt`)
-- `--epochs`, `--batch`, `--imgsz`: Training hyperparameters
-- `--device`: CUDA device id(s) or `cpu`
-- `--project`, `--name`: Output directory configuration
-- `--exist-ok`, `--workers`, `--resume`, `--patience`, `--seed`: Additional options
+**Tham số phổ biến:**
+- `--data`: Đường dẫn tới `data.yaml` (vd: `data/LP-11k/data.yaml`)
+- `--model`: Config hoặc weights YOLO (vd: `yolov8n.yaml`, `yolov8s.pt`)
+- `--epochs`, `--batch`, `--imgsz`: Hyperparameter huấn luyện
+- `--device`: ID(s) thiết bị CUDA hoặc `cpu`
+- `--project`, `--name`: Cấu hình thư mục output
+- `--exist-ok`, `--workers`, `--resume`, `--patience`, `--seed`: Các tùy chọn
+  khác
 
-### Export to ONNX
+### Xuất sang ONNX
 
-Convert trained models to ONNX format for deployment:
+Chuyển model đã huấn luyện sang định dạng ONNX để triển khai:
 
 ```bash
 uv run detectors/yolo/exporter.py \
@@ -536,18 +544,19 @@ uv run detectors/yolo/exporter.py \
   --dynamic
 ```
 
-**Arguments:**
-- `--weights`: Path to the `.pt` file (relative or absolute)
-- `--dynamic`: Keep dynamic batch/sequence axes (optional)
-- `--imgsz`, `--half`: Additional export options
+**Tham số:**
+- `--weights`: Đường dẫn tới file `.pt` (tương đối hoặc tuyệt đối)
+- `--dynamic`: Giữ trục batch/sequence động (tùy chọn)
+- `--imgsz`, `--half`: Các tùy chọn export khác
 
-Place exported `.onnx` files in the `weights/` directory.
+Đặt các file `.onnx` đã export vào thư mục `weights/`.
 
 ---
 
 ## Model Zoo
 
-Current best-performing models trained on various datasets:
+Các model có hiệu năng tốt nhất hiện tại, huấn luyện trên nhiều dataset khác
+nhau:
 
 | Model | mAP50 | mAP50-95 | Precision | Recall | Dataset |
 |-------|-------|----------|-----------|--------|---------|
@@ -557,7 +566,7 @@ Current best-performing models trained on various datasets:
 | YOLO12s | 0.818 | 0.490 | 0.800 | 0.763 | vehicle_18sep2025 |
 | YOLOv9e | 0.770 | 0.535 | 0.837 | 0.718 | vehicle_30oct2025 |
 
-Generate updated model zoo report:
+Tạo báo cáo model zoo cập nhật:
 
 ```bash
 uv run scripts/generate_model_zoo.py --runs-dir runs/detect --output MODEL_ZOO.md
@@ -565,9 +574,9 @@ uv run scripts/generate_model_zoo.py --runs-dir runs/detect --output MODEL_ZOO.m
 
 ---
 
-## Model Weights
+## Trọng số Model
 
-### Directory Structure
+### Cấu trúc thư mục
 
 ```
 weights/
@@ -590,34 +599,35 @@ weights/
     └── ppocrv4/
 ```
 
-### Model Naming Convention
+### Quy ước đặt tên Model
 
-Format: `{task}_{architecture}_{resolution}_{date}.{ext}`
+Định dạng: `{task}_{architecture}_{resolution}_{date}.{ext}`
 
 - **task**: vehicle, plate
 - **architecture**: yolo11n/s/m, yolo12n/s/m, yolov8n/s/m, yolov9s/c/e
-  - n: nano (fastest)
-  - s: small (balanced)
-  - m: medium (accurate)
+  - n: nano (nhanh nhất)
+  - s: small (cân bằng)
+  - m: medium (chính xác)
   - c: compact
   - e: extra-large
-- **resolution**: 320, 640 (input image size)
-- **date**: Training/release date
+- **resolution**: 320, 640 (kích thước ảnh đầu vào)
+- **date**: Ngày huấn luyện/phát hành
 - **ext**: pt (PyTorch), onnx (ONNX Runtime)
 
-### Recommended Models
+### Model khuyến nghị
 
-**Production Use (current API defaults):**
+**Dùng cho Production (mặc định hiện tại của API):**
 - Vehicle: `vehicle_yolov9s_640_30oct2025.pt`
-- Plate: `plate_yolo12n_640_2025.pt` at `PLATE_IMGSZ=1280` (small/distant plates
-  in wide frames need it — see [Configuration](#configuration)). `plate_yolov8n_320_2024.pt`
-  is available if you need raw speed over recall on small plates.
+- Plate: `plate_yolo12n_640_2025.pt` ở `PLATE_IMGSZ=1280` (biển số nhỏ/ở xa
+  trong khung hình rộng cần giá trị này — xem [Cấu hình](#cấu-hình)).
+  `plate_yolov8n_320_2024.pt` khả dụng nếu bạn cần tốc độ thô thay vì recall
+  cao với biển số nhỏ.
 
 ---
 
-## Data Management
+## Quản lý dữ liệu
 
-### Directory Structure
+### Cấu trúc thư mục
 
 ```
 data/
@@ -643,28 +653,28 @@ data/
     └── yt_downloader.py
 ```
 
-### Usage Guidelines
+### Hướng dẫn sử dụng
 
-- Place camera recordings in `recordings/<camera_name>/`
-- Store configuration files in `config/`
-- Processing results are saved to `results/`
-- Logs are automatically generated in `logs/`
-- Use scripts in `scripts/` for data operations
+- Đặt bản ghi camera vào `recordings/<camera_name>/`
+- Lưu file cấu hình trong `config/`
+- Kết quả xử lý được lưu vào `results/`
+- Log được tự động sinh ra trong `logs/`
+- Dùng script trong `scripts/` cho các thao tác dữ liệu
 
 ---
 
-## Dataset Download
+## Tải Dataset
 
-### Roboflow Integration
+### Tích hợp Roboflow
 
-Automate dataset downloads from Roboflow:
+Tự động tải dataset từ Roboflow:
 
-1. **Install Roboflow**:
+1. **Cài đặt Roboflow**:
 ```bash
 uv pip install roboflow
 ```
 
-2. **Configure `.env`**:
+2. **Cấu hình `.env`**:
 ```bash
 ROBOFLOW_API_KEY=your-api-key
 ROBOFLOW_WORKSPACE=your-workspace
@@ -674,44 +684,45 @@ ROBOFLOW_EXPORT_FORMAT=yolov8          # optional, defaults to yolov8
 ROBOFLOW_POLL_INTERVAL=600             # optional, seconds between checks
 ```
 
-3. **Run downloader**:
+3. **Chạy downloader**:
 ```bash
 uv run data/scripts/download_roboflow.py
 ```
 
-The script checks Roboflow every 10 minutes (configurable), downloads new versions, and auto-increments the version number.
+Script kiểm tra Roboflow mỗi 10 phút (có thể cấu hình), tải phiên bản mới, và
+tự động tăng số phiên bản.
 
 ---
 
-## WebApp Interface
+## Giao diện WebApp
 
-### Start WebApp
+### Khởi động WebApp
 
 ```bash
 uv pip install -r webapp/requirements.txt
 uv run uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863
 ```
 
-Open `http://localhost:7863` in your browser.
+Mở `http://localhost:7863` trong trình duyệt.
 
-### Features
+### Tính năng
 
-- Real-time video stream visualization
-- RTSP camera support
-- WebRTC streaming
-- Camera presets management
-- Model selection interface
-- Drawing overlays (bounding boxes, labels, plates)
+- Trực quan hóa luồng video thời gian thực
+- Hỗ trợ camera RTSP
+- Streaming qua WebRTC
+- Quản lý preset camera
+- Giao diện chọn model
+- Vẽ overlay (bounding box, nhãn, biển số)
 
-**Note**: The webapp is independent from the main API service and uses its own processing instance.
+**Lưu ý**: WebApp độc lập với dịch vụ API chính và dùng instance xử lý riêng.
 
 ---
 
-## Docker Deployment
+## Triển khai Docker
 
-### Quick Start with Docker Compose
+### Bắt đầu nhanh với Docker Compose
 
-Run both services (Analysis API + WebApp) with a single command:
+Chạy cả hai dịch vụ (Analysis API + WebApp) chỉ với một lệnh:
 
 ```bash
 # Production mode (detached)
@@ -724,15 +735,15 @@ docker compose logs -f
 docker compose down
 ```
 
-**Services:**
+**Các dịch vụ:**
 - Analysis Service API: http://localhost:7862
   - Swagger UI: http://localhost:7862/docs
   - ReDoc: http://localhost:7862/redoc
 - WebApp Interface: http://localhost:7863
 
-### Development Mode
+### Chế độ phát triển
 
-For hot-reloading during development:
+Để hot-reload trong quá trình phát triển:
 
 ```bash
 # Start in development mode
@@ -742,7 +753,7 @@ docker compose -f docker-compose.dev.yml up
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-### Manual Docker Build
+### Build Docker thủ công
 
 ```bash
 # Build image
@@ -766,19 +777,20 @@ docker run -d \
   uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863
 ```
 
-### GPU Support
+### Hỗ trợ GPU
 
-The docker-compose files include GPU support. If you don't have GPU, remove the `deploy` section from docker-compose.yml or set `ALPR_DEVICE=cpu`.
+Các file docker-compose đã tích hợp sẵn hỗ trợ GPU. Nếu không có GPU, xóa
+phần `deploy` khỏi docker-compose.yml hoặc đặt `ALPR_DEVICE=cpu`.
 
-**Requirements:**
-- NVIDIA Docker runtime installed
-- NVIDIA GPU with CUDA support
+**Yêu cầu:**
+- Đã cài NVIDIA Docker runtime
+- NVIDIA GPU hỗ trợ CUDA
 
 ---
 
-## Development
+## Phát triển
 
-### Testing
+### Kiểm thử
 
 ```bash
 # Test imports and API creation
@@ -802,19 +814,20 @@ uv run main.py &
 uv run scripts/smoke_api_all.py
 ```
 
-### Adding New Models
+### Thêm Model mới
 
-1. Train your model following the training guidelines
-2. Save with proper naming convention
-3. Place in appropriate `weights/` subdirectory
-4. Update configuration if needed
-5. Test with the API
+1. Huấn luyện model theo hướng dẫn huấn luyện
+2. Lưu theo đúng quy ước đặt tên
+3. Đặt vào đúng thư mục con trong `weights/`
+4. Cập nhật cấu hình nếu cần
+5. Kiểm tra với API
 
 ---
 
-## Citation
+## Trích dẫn
 
-If this project helps your research or deployment, please cite:
+Nếu dự án này hữu ích cho nghiên cứu hoặc triển khai của bạn, vui lòng trích
+dẫn:
 
 ```bibtex
 @misc{trafficcam2025,
@@ -827,21 +840,25 @@ If this project helps your research or deployment, please cite:
 
 ---
 
-## License
+## Giấy phép
 
 Copyright (C) 2023-2026 TonAI Vision Lab
 
 ---
 
-## Support
+## Hỗ trợ
 
-For questions and issues:
-- Check the [Interactive API Documentation](http://localhost:7862/docs) when service is running
-- Review example code in [client_example.py](client_example.py)
-- Check existing issues or contact the development team
+Nếu có câu hỏi hoặc gặp vấn đề:
+- Xem [Tài liệu API tương tác](http://localhost:7862/docs) khi dịch vụ đang
+  chạy
+- Xem code ví dụ trong [client_example.py](client_example.py)
+- Kiểm tra issue hiện có hoặc liên hệ đội phát triển
 
-## Acknowledgments
+## Lời cảm ơn
 
-- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) for detection models
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) for text recognition
-- [DeepSORT](https://github.com/John1liu/YOLOV5-DeepSORT-Vehicle-Tracking-Master) for tracking implementation
+- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) cho các
+  model phát hiện
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) cho nhận diện văn
+  bản
+- [DeepSORT](https://github.com/John1liu/YOLOV5-DeepSORT-Vehicle-Tracking-Master)
+  cho triển khai tracking

@@ -1,12 +1,22 @@
 # Traffic AI Service — API
 
 FastAPI backend for vehicle detection, plate detection/tracking, and license-plate
-OCR. Source: [`main.py`](main.py). Pipeline: YOLO vehicle/plate detect → DeepSORT
+OCR. Source: [`main.py`](../main.py). Pipeline: YOLO vehicle/plate detect → DeepSORT
 tracking → dual-OCR (fast-plate-ocr + PP-OCRv6). Multi-frame plate restoration
 (mf-lpr2 / eott) runs **in-process** on the same port via
-[`utils/fusion_client.py`](utils/fusion_client.py) — engines vendored under
-[`fusion_svc/`](fusion_svc/), installed into this venv. Everything is one process
+[`utils/fusion_client.py`](../utils/fusion_client.py) — engines vendored under
+[`fusion_svc/`](../fusion_svc/), installed into this venv. Everything is one process
 on one port; no sidecar.
+
+## Start the API
+
+```bash
+uv sync                              # main deps
+scripts/install_fusion_inproc.sh     # vendored mf-lpr2 + eott (needed for the fusion endpoints)
+uv run main.py                       # binds 0.0.0.0:7862
+```
+
+Swagger UI: `http://localhost:7862/docs`. See [Install](#install) / [Run](#run) below for details.
 
 ## Install
 
@@ -97,7 +107,7 @@ plate image; the two `/predict/plates/*` variants additionally dual-OCR it.
 - `/video` runs detect+track over the whole clip, groups crops per track id, and
   fuses+OCRs each track's burst.
 
-See [`fusion_svc/API.md`](fusion_svc/API.md) for engine differences (mflpr2 vs
+See [`fusion-svc-API.md`](fusion-svc-API.md) for engine differences (mflpr2 vs
 eott output, scale behavior).
 
 ## Errors

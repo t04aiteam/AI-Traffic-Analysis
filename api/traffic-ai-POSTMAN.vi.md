@@ -1,12 +1,23 @@
 # Kiểm thử API Traffic AI bằng Postman
 
 Hướng dẫn từng bước cho QA/tester. Không cần lập trình. API là service FastAPI
-trong [`main.py`](main.py) (xem [`API.md`](API.md) để tham khảo cho dev). Có
-**11 endpoint** cho phát hiện xe/biển số, theo dõi (tracking), OCR biển số và gộp biển.
+trong [`main.py`](../main.py) (xem [`traffic-ai-API.md`](traffic-ai-API.md) để
+tham khảo cho dev). Có **10 endpoint** cho phát hiện xe/biển số, theo dõi
+(tracking), OCR biển số và gộp biển.
 
 > Mọi endpoint chạy trên **một cổng** (mặc định `7862`). Gộp đa khung
 > (`/fuse`, `/predict/plates/multiframe`, `/predict/plates/video`) chạy
 > in-process — không cần bật sidecar.
+
+## 0. Khởi động API
+
+```bash
+uv sync                              # dependency chính
+scripts/install_fusion_inproc.sh     # vendor mf-lpr2 + eott (cần cho các endpoint gộp biển)
+uv run main.py                       # bind 0.0.0.0:7862
+```
+
+Xác nhận đã chạy: `GET http://127.0.0.1:7862/health` → `200`.
 
 Bạn có thể **import collection dựng sẵn** (nhanh nhất) hoặc tự tạo request bằng
 tay. Cả hai đều được hướng dẫn.
