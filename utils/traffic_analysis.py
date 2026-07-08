@@ -576,7 +576,7 @@ class TrafficAnalysisService:
         detection = self.plate_detector(
             frame,
             verbose=False,
-            imgsz=320,
+            imgsz=getattr(self.opts, "plate_imgsz", 1280),
             device=self.opts.device,
             conf=self.opts.pconf,
         )[0]

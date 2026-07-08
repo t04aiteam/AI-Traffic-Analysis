@@ -46,10 +46,13 @@ DEFAULT_DEVICE = os.environ.get("ALPR_DEVICE", "auto")
 # Initialize ALPR Core
 opts = SimpleNamespace(
     vehicle_weight=os.environ.get("VEHICLE_WEIGHT", "weights/vehicle/vehicle_yolov9s_640_30oct2025.pt"),
-    plate_weight=os.environ.get("PLATE_WEIGHT", "weights/plate/plate_yolov8n_320_2024.pt"),
+    plate_weight=os.environ.get("PLATE_WEIGHT", "weights/plate/plate_yolo12n_640_2025.pt"),
     dsort_weight=os.environ.get("DSORT_WEIGHT", "weights/tracking/deepsort/ckpt.t7"),
     vconf=float(os.environ.get("VEHICLE_CONF", "0.6")),
     pconf=float(os.environ.get("PLATE_CONF", "0.25")),
+    # 1280 (not the weight's native 320/640) so small plates in wide/overhead
+    # frames still survive downscaling and get detected; override via PLATE_IMGSZ.
+    plate_imgsz=int(os.environ.get("PLATE_IMGSZ", "1280")),
     ocr_thres=float(os.environ.get("OCR_THRESHOLD", "0.9")),
     ocr_engine=os.environ.get("OCR_ENGINE", "paddle").strip().lower(),
     fpo_model=os.environ.get("FPO_MODEL", "cct-s-v2-global-model"),
