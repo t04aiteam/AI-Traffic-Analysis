@@ -31,8 +31,8 @@ dependencies = [
     "scipy>=1.15.3",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "httpx2>=2.4.0",
     "pytest",
 ]
