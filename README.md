@@ -8,9 +8,6 @@
   <strong>License Plate Recognition (ALPR) and Traffic Surveillance System</strong>
 </p>
 
-![Demo](data/assets/demo.jpg)
-![Demo](data/assets/demo2.png)
-
 ---
 
 ## Table of Contents
@@ -86,11 +83,9 @@ TrafficCam is a comprehensive traffic surveillance and license plate recognition
 ### Option 1: Using Docker (Recommended)
 
 ```bash
-# Start both services with one command
 docker compose up -d
-
-# Or use the helper script
-./docker.sh start
+docker compose logs -f
+docker compose down
 ```
 
 **Services will be available at:**
@@ -102,8 +97,9 @@ docker compose up -d
 ### 1. Installation
 
 ```bash
-# Install dependencies
-bash scripts/install.sh
+# Install dependencies (uv, recommended)
+uv sync
+scripts/install_fusion_inproc.sh   # vendored mf-lpr2 + eott, for the fusion endpoints
 
 # Or manually
 pip install -r requirements.txt
@@ -112,14 +108,10 @@ pip install -r requirements.txt
 ### 2. Start API Service
 
 ```bash
-# Quick start
-./quickstart.sh
+uv run main.py
 
-# Or manually
-python main.py
-
-# Using Uvicorn (production)
-uvicorn main:app --host 0.0.0.0 --port 7862
+# Using Uvicorn directly (production)
+uv run uvicorn main:app --host 0.0.0.0 --port 7862
 ```
 
 The service will start on `http://localhost:7862`
@@ -130,14 +122,12 @@ The service will start on `http://localhost:7862`
 # Health check
 curl http://localhost:7862/health
 
-# Process an image
-curl -X POST http://localhost:7862/predict/image \
-  -F "file=@path/to/image.jpg"
+# Vehicle detect + plate on an image
+curl -F files=@path/to/image.jpg 'http://localhost:7862/predict/batch?format=json'
 
 # Using example client
-python client_example.py --health
-python client_example.py --image path/to/image.jpg
-python client_example.py --video path/to/video.mp4
+uv run client_example.py --health
+uv run client_example.py --video path/to/video.mp4
 ```
 
 ### 4. Interactive API Documentation
@@ -160,9 +150,10 @@ python client_example.py --video path/to/video.mp4
 │  │              │                                        │
 │  │ Endpoints:   │                                        │
 │  │ /predict/    │                                        │
-│  │   image      │                                        │
+│  │  frame,batch │                                        │
 │  │ /predict/    │                                        │
-│  │   frame      │                                        │
+│  │  plates/*    │                                        │
+│  │ /fuse        │                                        │
 │  │ /reset       │                                        │
 │  │ /config      │                                        │
 │  └──────┬───────┘                                        │
@@ -201,8 +192,10 @@ license-plate-recognition/
 ├── client_example.py          # Example client for testing
 ├── api_test.py                # API testing script
 ├── requirements.txt           # Python dependencies
+├── api/                       # API docs + Postman collections (traffic-ai-*, fusion-svc-*)
+├── fusion_svc/                # Multi-frame plate fusion: vendored mf-lpr2/eott,
+│                               #   optional standalone app (see Multi-Frame Plate Fusion)
 ├── data/                      # Data management
-│   ├── assets/               # Demo images and visual resources
 │   ├── config/               # Configuration files (JSON, TXT)
 │   ├── logs/                 # Application logs and outputs
 │   ├── recordings/           # Camera recording data
@@ -246,13 +239,14 @@ The service is configured using environment variables:
 export ALPR_DEVICE=cuda:0      # Options: auto, cpu, cuda:0, cuda:1, etc.
 
 # Model paths
-export VEHICLE_WEIGHT=weights/vehicle/vehicle_yolo12s_640.pt
-export PLATE_WEIGHT=weights/plate/plate_yolov8n_320_2024.pt
+export VEHICLE_WEIGHT=weights/vehicle/vehicle_yolov9s_640_30oct2025.pt
+export PLATE_WEIGHT=weights/plate/plate_yolo12n_640_2025.pt
 export DSORT_WEIGHT=weights/tracking/deepsort/ckpt.t7
 
 # Detection thresholds
 export VEHICLE_CONF=0.6        # Vehicle detection confidence (0.0-1.0)
 export PLATE_CONF=0.25         # Plate detection confidence (0.0-1.0)
+export PLATE_IMGSZ=1280        # Plate detect inference size (full-frame path); small/distant plates need this above the weight's native 640
 export OCR_THRESHOLD=0.9       # OCR confidence threshold (0.0-1.0)
 
 # Tracking
@@ -277,16 +271,22 @@ export PORT=7862
 |----------|--------|-------------|
 | `/` | GET | Service information and available endpoints |
 | `/health` | GET | Health check and configuration status |
-| `/predict/image` | POST | Process single image (resets tracking) |
-| `/predict/frame` | POST | Process video frame (maintains tracking) |
-| `/predict/batch` | POST | Vehicle-detect N images → annotated JPEG (1) or ZIP (N) |
+| `/predict/frame` | POST | Process video frame (maintains tracking state across calls) |
+| `/predict/batch` | POST | N images/videos/zips → annotated media (1→JPEG/MP4, N→ZIP) or JSON (`?format=json`) |
 | `/predict/plates/batch` | POST | Plate-detect N images, dual-OCR (FAST + PPOCRv6) → annotated JPEG/ZIP |
 | `/predict/plates/multiframe` | POST | Fuse a burst of one plate's crops → dual-OCR the restored plate |
 | `/predict/plates/video` | POST | Detect+track plates in a video, fuse each track's burst, dual-OCR |
+| `/fuse` | POST | Fuse a burst of crops → restored plate image (PNG), no OCR |
 | `/reset` | POST | Reset tracker state |
 | `/config` | GET | Get current configuration |
 
-> `/predict/plates/multiframe` and `/predict/plates/video` require the **fusion sidecar** running (see [Multi-Frame Plate Fusion](#multi-frame-plate-fusion)).
+> There's no standalone `/predict/image` — for a one-off single image, use
+> `/predict/batch` with one file (`?format=json` for JSON instead of an
+> annotated image).
+>
+> Multi-frame fusion (`/fuse`, `/predict/plates/multiframe`, `/predict/plates/video`)
+> runs **in-process** by default — no sidecar needed (see
+> [Multi-Frame Plate Fusion](#multi-frame-plate-fusion)).
 
 ### Response Format
 
@@ -324,9 +324,8 @@ export PORT=7862
 # Health check
 curl http://localhost:7862/health
 
-# Process image
-curl -X POST http://localhost:7862/predict/image \
-  -F "file=@car.jpg"
+# Process image (vehicle type + plate, JSON)
+curl -F "files=@car.jpg" "http://localhost:7862/predict/batch?format=json"
 
 # Process video frame
 curl -X POST "http://localhost:7862/predict/frame?frame_number=42" \
@@ -347,11 +346,12 @@ import requests
 # Process single image
 with open("car.jpg", "rb") as f:
     response = requests.post(
-        "http://localhost:7862/predict/image",
-        files={"file": f}
+        "http://localhost:7862/predict/batch",
+        files={"files": f},
+        params={"format": "json"}
     )
     data = response.json()
-    for det in data['detections']:
+    for det in data['results'][0]['detections']:
         print(f"Vehicle: {det['vehicle_type']}, Plate: {det.get('license_plate', 'N/A')}")
 
 # Process video
@@ -393,19 +393,16 @@ cap.release()
 
 ```bash
 # Health check
-python client_example.py --health
-
-# Process image
-python client_example.py --image path/to/image.jpg
+uv run client_example.py --health
 
 # Process video (all frames)
-python client_example.py --video path/to/video.mp4
+uv run client_example.py --video path/to/video.mp4
 
 # Process limited frames
-python client_example.py --video path/to/video.mp4 --max-frames 100
+uv run client_example.py --video path/to/video.mp4 --max-frames 100
 
 # Get configuration
-python client_example.py --config
+uv run client_example.py --config
 ```
 
 ---
@@ -418,34 +415,37 @@ them into one restored plate, then runs dual-OCR (FAST + PPOCRv6).
 
 ### Architecture
 
-Two cooperating localhost services:
+Fusion runs **in-process** on the main API, one process on one port — no
+sidecar to start by default:
 
 ```
-main API (7862) ──HTTP──> fusion sidecar (8100)
-  detect/track plate         merge N crops → 1 restored plate (BGR PNG)
+main API (7862) ──in-process──> mf-lpr2 / eott adapters
+  detect/track plate    merge N crops → 1 restored plate (BGR PNG)
   dual-OCR restored plate    engines: mflpr2 (mf-lpr2), eott
 ```
 
-The sidecar lives in `fusion_svc/` as a self-contained `uv` subproject with
-its own `.venv` (depends on `mf-lpr2` and `eott`, image-only — no torch/paddle).
-The main app never imports it; it calls over HTTP, so dependency isolation is
-preserved. `utils/fusion_client.py` is the client (`FUSION_URL`, default
-`http://127.0.0.1:8100`). The `mf-lpr2` and `eott` engines are vendored as git
-submodules under `fusion_svc/external/` — a fresh clone needs
-`git submodule update --init --recursive` (or `git clone --recurse-submodules`).
+The engines are vendored as git submodules under `fusion_svc/external/` and
+installed **into the main venv** (not a separate one) via
+`scripts/install_fusion_inproc.sh` — a fresh clone needs
+`git submodule update --init --recursive` first. `utils/fusion_client.py`
+calls the adapters directly (no HTTP).
+
+`fusion_svc/` also ships as an **optional standalone app** (its own `.venv`,
+port 8100) if you want fusion crash-isolated in a separate process — see
+[`api/fusion-svc-API.md`](api/fusion-svc-API.md). Point the main API at it
+with `FUSION_URL` in that split mode.
 
 ### Running
 
 ```bash
-# 0. Fresh clone only: fetch the engine submodules + build the sidecar venv
+# Fresh clone only: fetch the engine submodules
 git submodule update --init --recursive
-uv sync --directory fusion_svc
 
-# 1. Start the fusion sidecar
-uv run --directory fusion_svc uvicorn fusion_svc.app:app --port 8100
+uv sync                              # main deps
+scripts/install_fusion_inproc.sh     # vendors mf-lpr2 + eott into this venv
+                                      # re-run after any `uv sync`
 
-# 2. Start the main API (separate shell)
-uv run uvicorn main:app --port 7862
+uv run main.py                       # single process, port 7862
 ```
 
 ### Endpoints
@@ -458,9 +458,13 @@ curl -X POST "http://localhost:7862/predict/plates/multiframe?engine=mflpr2&scal
 # Video: detect+track plates, fuse each track's burst automatically
 curl -X POST "http://localhost:7862/predict/plates/video?engine=mflpr2" \
   -F "file=@clip.mp4"                          # -> [{track_id, n_frames, fast, ppocr}, ...]
+
+# Fusion only, no OCR -> restored plate image
+curl -X POST "http://localhost:7862/fuse?engine=mflpr2&scale=2" \
+  -F "files=@01.png" -F "files=@02.png" -o fused.png
 ```
 
-Params: `engine` (`mflpr2` | `eott`), `scale` (upscale factor, default 2),
+Params: `engine` (`mflpr2` | `eott`), `scale` (upscale factor, default 1),
 `max_frames` (default 32), `min_frames` (video only, default 8).
 
 ### Benchmark notes (RLPR sample plates, 31 crops/plate)
@@ -493,8 +497,8 @@ Train a detector directly from the CLI:
   --imgsz 320 \
   --device 0
 
-# Or using Python directly
-python detectors/yolo/train_ultralytics.py \
+# Or directly
+uv run detectors/yolo/train_ultralytics.py \
   --data data/Peru_License_Plate/data.yaml \
   --model yolov8n.yaml \
   --epochs 200 \
@@ -516,7 +520,7 @@ python detectors/yolo/train_ultralytics.py \
 Convert trained models to ONNX format for deployment:
 
 ```bash
-python detectors/yolo/exporter.py \
+uv run detectors/yolo/exporter.py \
   --weights weights/plate/plate_yolo11n_640_2025.pt \
   --dynamic
 ```
@@ -545,7 +549,7 @@ Current best-performing models trained on various datasets:
 Generate updated model zoo report:
 
 ```bash
-python scripts/generate_model_zoo.py --runs-dir runs/detect --output MODEL_ZOO.md
+uv run scripts/generate_model_zoo.py --runs-dir runs/detect --output MODEL_ZOO.md
 ```
 
 ---
@@ -557,12 +561,12 @@ python scripts/generate_model_zoo.py --runs-dir runs/detect --output MODEL_ZOO.m
 ```
 weights/
 ├── vehicle/              # Vehicle detection models
-│   ├── vehicle_yolo12s_640.pt (recommended)
+│   ├── vehicle_yolov9s_640_30oct2025.pt (default)
 │   ├── vehicle_yolo11m_640_18sep2025.pt
 │   └── ...
 ├── plate/                # License plate detection models
-│   ├── plate_yolov8n_320_2024.pt (recommended for speed)
-│   ├── plate_yolo12n_640_2025.pt (recommended for accuracy)
+│   ├── plate_yolo12n_640_2025.pt (default, needs PLATE_IMGSZ=1280)
+│   ├── plate_yolov8n_320_2024.pt (faster, lower recall on small plates)
 │   └── ...
 ├── pretrained/           # Pre-trained YOLO base models
 │   ├── yolo11m.pt
@@ -592,9 +596,11 @@ Format: `{task}_{architecture}_{resolution}_{date}.{ext}`
 
 ### Recommended Models
 
-**Production Use:**
-- Vehicle: `vehicle_yolo12s_640.pt` (balanced speed/accuracy)
-- Plate: `plate_yolov8n_320_2024.pt` (speed) or `plate_yolo12n_640_2025.pt` (accuracy)
+**Production Use (current API defaults):**
+- Vehicle: `vehicle_yolov9s_640_30oct2025.pt`
+- Plate: `plate_yolo12n_640_2025.pt` at `PLATE_IMGSZ=1280` (small/distant plates
+  in wide frames need it — see [Configuration](#configuration)). `plate_yolov8n_320_2024.pt`
+  is available if you need raw speed over recall on small plates.
 
 ---
 
@@ -644,7 +650,7 @@ Automate dataset downloads from Roboflow:
 
 1. **Install Roboflow**:
 ```bash
-pip install roboflow
+uv pip install roboflow
 ```
 
 2. **Configure `.env`**:
@@ -659,7 +665,7 @@ ROBOFLOW_POLL_INTERVAL=600             # optional, seconds between checks
 
 3. **Run downloader**:
 ```bash
-python data/scripts/download_roboflow.py
+uv run data/scripts/download_roboflow.py
 ```
 
 The script checks Roboflow every 10 minutes (configurable), downloads new versions, and auto-increments the version number.
@@ -671,9 +677,8 @@ The script checks Roboflow every 10 minutes (configurable), downloads new versio
 ### Start WebApp
 
 ```bash
-cd webapp
-pip install -r requirements.txt
-uvicorn backend.main:app --host 0.0.0.0 --port 7863
+uv pip install -r webapp/requirements.txt
+uv run uvicorn webapp.backend.main:app --host 0.0.0.0 --port 7863
 ```
 
 Open `http://localhost:7863` in your browser.
@@ -706,16 +711,6 @@ docker compose logs -f
 
 # Stop services
 docker compose down
-```
-
-**Using Helper Script:**
-
-```bash
-./docker.sh start       # Start services
-./docker.sh logs        # View logs
-./docker.sh status      # Check status
-./docker.sh stop        # Stop services
-./docker.sh help        # Show all commands
 ```
 
 **Services:**
@@ -776,18 +771,24 @@ The docker-compose files include GPU support. If you don't have GPU, remove the 
 
 ```bash
 # Test imports and API creation
-python api_test.py
+uv run api_test.py
 
 # Test with example client
-python client_example.py --health
-python client_example.py --config
+uv run client_example.py --health
+uv run client_example.py --config
 
 # Test with sample data
-python client_example.py --image data/samples/test.jpg
-python client_example.py --video data/recordings/test.mp4 --max-frames 100
+uv run client_example.py --video data/recordings/test.mp4 --max-frames 100
 
 # Quick ALPR test
-python scripts/test_alpr.py --input_source path/to/image_or_video
+uv run scripts/test_alpr.py --input_source path/to/image_or_video
+
+# Full pytest suite
+uv run pytest tests/
+
+# Smoke test the live API (all 10 endpoints)
+uv run main.py &
+uv run scripts/smoke_api_all.py
 ```
 
 ### Adding New Models

@@ -159,7 +159,8 @@ curl -X POST http://localhost:7862/reset
 |---|---|---|
 | `ALPR_DEVICE` | `auto` | `cuda:0` \| `cpu` |
 | `VEHICLE_WEIGHT` | `weights/vehicle/vehicle_yolov9s_640_30oct2025.pt` | vehicle YOLO |
-| `PLATE_WEIGHT` | `weights/plate/plate_yolov8n_320_2024.pt` | plate YOLO |
+| `PLATE_WEIGHT` | `weights/plate/plate_yolo12n_640_2025.pt` | plate YOLO |
+| `PLATE_IMGSZ` | `1280` | plate detect inference size (full-frame path) — small/distant plates in wide frames need this above the weight's native 640 |
 | `DSORT_WEIGHT` | `weights/tracking/deepsort/ckpt.t7` | DeepSORT re-id |
 | `VEHICLE_CONF` / `PLATE_CONF` | `0.6` / `0.25` | detector confidences |
 | `OCR_THRESHOLD` | `0.9` | OCR accept threshold |
@@ -176,7 +177,7 @@ Fusion runs in-process — nothing else to configure or start.
 
 ```bash
 uv run main.py &                  # start API (7862) — fusion is in-process
-uv run scripts/smoke_api_all.py   # exercises all 11 endpoints (incl. /fuse + OCR paths)
+uv run scripts/smoke_api_all.py   # exercises all 10 endpoints (incl. /fuse + OCR paths)
 ```
 
 Synthetic inputs; checks status codes + response shape (not OCR accuracy).
