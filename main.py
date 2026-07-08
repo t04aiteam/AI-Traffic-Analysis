@@ -198,7 +198,9 @@ async def predict_frame(file: UploadFile = File(...), frame_number: Optional[int
             detections=detections,
             frame_count=frame_number
         )
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
