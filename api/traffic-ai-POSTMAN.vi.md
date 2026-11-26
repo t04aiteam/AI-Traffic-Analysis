@@ -9,7 +9,11 @@ tham khảo cho dev). Có **10 endpoint** cho phát hiện xe/biển số, theo 
 > (`/fuse`, `/predict/plates/multiframe`, `/predict/plates/video`) chạy
 > in-process — không cần bật sidecar.
 
-## 0. Khởi động API
+## 0. Dùng server đã triển khai, hoặc tự chạy
+
+Có sẵn một instance chung tại **`http://10.8.0.16:7862`** (CPU). Kết nối **VPN c09** trước,
+rồi kiểm tra `GET http://10.8.0.16:7862/health` → `200`. Collection khi import đã trỏ sẵn tới
+đó; chuyển tới **§1**. Nếu muốn tự chạy một bản riêng:
 
 ```bash
 uv sync                              # dependency chính
@@ -33,8 +37,8 @@ tay. Cả hai đều được hướng dẫn.
    đủ request đã dựng sẵn.
 4. Đặt base URL một lần cho cả collection:
    - Bấm vào tên collection → tab **Variables**.
-   - Đặt **`base_url`** ở cột Current Value thành server của bạn, ví dụ
-     `http://127.0.0.1:7862` (không có dấu `/` ở cuối). **Save** (Ctrl/Cmd-S).
+   - Đặt **`base_url`** ở cột Current Value thành server của bạn, `http://10.8.0.16:7862` (mặc định),
+     hoặc `http://127.0.0.1:7862` khi chạy local (không có dấu `/` ở cuối). **Save** (Ctrl/Cmd-S).
 5. Với mỗi request có file, tự đính kèm lại file (Postman không lưu nội dung
    file): mở request → **Body → form-data** → ở mỗi dòng `file`/`files` bấm
    **Select Files** và chọn ảnh/video.
@@ -45,7 +49,7 @@ Sau đó chuyển tới **§3 Các kịch bản kiểm thử**.
 
 ## 2. Tự tạo request bằng tay (nếu không import)
 
-Tạo một collection mới, thêm biến `base_url = http://127.0.0.1:7862`, rồi thêm các
+Tạo một collection mới, thêm biến `base_url = http://10.8.0.16:7862`, rồi thêm các
 request bên dưới. URL dùng `{{base_url}}`.
 
 ### 2a. Kiểm tra sức khoẻ — `GET {{base_url}}/health`

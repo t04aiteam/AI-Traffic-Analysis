@@ -9,7 +9,11 @@ detection, tracking, license-plate OCR, and plate fusion.
 > (`/fuse`, `/predict/plates/multiframe`, `/predict/plates/video`) runs
 > in-process — no sidecar to start.
 
-## 0. Start the API
+## 0. Use the deployed server, or start your own
+
+A shared instance runs at **`http://10.8.0.16:7862`** (CPU). Connect to the **c09 VPN** first,
+then check `GET http://10.8.0.16:7862/health` → `200`. The imported collection already points
+there; skip to **§1**. To run your own copy instead:
 
 ```bash
 uv sync                              # main deps
@@ -33,8 +37,8 @@ requests by hand. Both are covered.
    requests pre-built.
 4. Set the base URL once for the whole collection:
    - Click the collection name → **Variables** tab.
-   - Set **`base_url`** Current Value to your server, e.g. `http://127.0.0.1:7862`
-     (no trailing slash). **Save** (Ctrl/Cmd-S).
+   - Set **`base_url`** Current Value to your server, `http://10.8.0.16:7862` (the default),
+     or `http://127.0.0.1:7862` for a local run (no trailing slash). **Save** (Ctrl/Cmd-S).
 5. For any request with a file, re-attach your own file (Postman does not store
    file contents): open the request → **Body → form-data** → on each `file`/`files`
    row click **Select Files** and pick your image/video.
@@ -45,7 +49,7 @@ Then jump to **§3 Test scenarios**.
 
 ## 2. Build requests by hand (if not importing)
 
-Create a new collection, add a variable `base_url = http://127.0.0.1:7862`, then
+Create a new collection, add a variable `base_url = http://10.8.0.16:7862`, then
 add the requests below. URLs use `{{base_url}}`.
 
 ### 2a. Health check — `GET {{base_url}}/health`
