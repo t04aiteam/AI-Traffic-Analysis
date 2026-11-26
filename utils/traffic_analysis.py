@@ -23,6 +23,11 @@ from utils.utils import (
     map_label,
 )
 
+# PP-OCR text detection works on a copy shrunk to a 960 px longest side; recognition
+# still crops the original. Uncapped, detection ran at full resolution: 16-240 s per
+# photo on CPU vs ~8.6 s capped (168 lipla-ocr images, box 222).
+PPOCR_DET_CAP = dict(text_det_limit_type="max", text_det_limit_side_len=960)
+
 
 class TrafficAnalysisService:
     """
@@ -37,7 +42,12 @@ class TrafficAnalysisService:
     - Exposes `process_frame` and `process_image`
     """
 
-    def __init__(self, opts):
+    def __init__(self, opts: object) -> None:
+        """Load detectors, tracker and OCR engines.
+
+        Args:
+            opts: runtime options (device, weights, OCR engine, thresholds).
+        """
         self.opts = opts
 
         requested_device = getattr(self.opts, "device", "auto")
@@ -138,6 +148,7 @@ class TrafficAnalysisService:
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
                 enable_mkldnn=False,  # oneDNN PIR path crashes on PP-OCRv6 (ConvertPirAttribute2RuntimeAttribute)
+                **PPOCR_DET_CAP,
             )
             try:
                 if "use_gpu" in inspect.signature(PaddleOCR.__init__).parameters:
@@ -163,6 +174,7 @@ class TrafficAnalysisService:
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
                 enable_mkldnn=False,  # oneDNN PIR path crashes on PP-OCRv6 (ConvertPirAttribute2RuntimeAttribute)
+                **PPOCR_DET_CAP,
             )
             self._ocr_predict = self._ocr_predict_paddle
         elif engine == "none":
@@ -472,6 +484,7 @@ class TrafficAnalysisService:
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
                 enable_mkldnn=False,  # oneDNN PIR path crashes on PP-OCRv6 (ConvertPirAttribute2RuntimeAttribute)
+                **PPOCR_DET_CAP,
             )
             self._dual_ocr_ready = True
 
@@ -502,12 +515,16 @@ class TrafficAnalysisService:
             return text, conf
         return "", 0.0
 
-    def collect_plate_bursts(self, frames, min_frames=8, max_frames=32):
+    def collect_plate_bursts(self, frames: list, min_frames: int = 8, max_frames: int = 32) -> dict:
         """Group per-track plate crops across frames.
 
-        frames: list of BGR ndarrays (already decoded video frames).
-        Returns {track_id: [plate_crop_bgr, ...]} keeping only tracks with
-        >= min_frames crops, each capped to max_frames evenly-spaced crops.
+        Args:
+            frames: BGR ndarrays (already decoded video frames).
+            min_frames: drop tracks with fewer crops than this.
+            max_frames: keep at most this many evenly-spaced crops per track.
+
+        Returns:
+            {track_id: [plate_crop_bgr, ...]} for tracks with >= min_frames crops.
         """
         from utils.plate_burst import select_burst_window
 
@@ -569,7 +586,14 @@ class TrafficAnalysisService:
         }
 
     def detect_plates_dual_ocr(self, frame: np.ndarray) -> list:
-        """Detect plates and run FPO + PPOCRv6-medium on each crop."""
+        """Detect plates and run FPO + PPOCRv6-medium on each crop.
+
+        Args:
+            frame: BGR image.
+
+        Returns:
+            One dict per plate with its bbox and both OCR results.
+        """
         if frame is None or frame.size == 0:
             return []
         self._ensure_dual_ocr()
