@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "Traffic AI Service API",
+    "name": "OCR biển số",
     "description": "Vehicle/plate detection, tracking, and license-plate OCR. 10 endpoints, all on one port (fusion runs in-process — no sidecar). Set the collection variable base_url to your server. Re-attach files on each request (Postman does not store file contents).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },

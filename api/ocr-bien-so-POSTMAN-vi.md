@@ -33,7 +33,7 @@ tay. Cả hai đều được hướng dẫn.
 1. Trong Postman: **File → Import** (hoặc nút **Import** ở góc trên bên trái).
 2. Chọn file **[`ocr-bien-so.postman_collection.json`](ocr-bien-so.postman_collection.json)**
    từ repo này.
-3. Một collection **"Traffic AI Service API"** xuất hiện ở thanh bên trái với đầy
+3. Một collection **"OCR biển số"** xuất hiện ở thanh bên trái với đầy
    đủ request đã dựng sẵn.
 4. Đặt base URL một lần cho cả collection:
    - Bấm vào tên collection → tab **Variables**.

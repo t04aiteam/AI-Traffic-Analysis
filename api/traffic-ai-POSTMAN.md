@@ -33,7 +33,7 @@ requests by hand. Both are covered.
 1. In Postman: **File → Import** (or the **Import** button, top-left).
 2. Select **[`ocr-bien-so.postman_collection.json`](ocr-bien-so.postman_collection.json)**
    from this repo.
-3. A collection **"Traffic AI Service API"** appears in the left sidebar with all
+3. A collection **"OCR biển số"** appears in the left sidebar with all
    requests pre-built.
 4. Set the base URL once for the whole collection:
    - Click the collection name → **Variables** tab.
