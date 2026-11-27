@@ -31,7 +31,7 @@ requests by hand. Both are covered.
 ## 1. Import the collection (recommended)
 
 1. In Postman: **File → Import** (or the **Import** button, top-left).
-2. Select **[`traffic-ai.postman_collection.json`](traffic-ai.postman_collection.json)**
+2. Select **[`ocr-bien-so.postman_collection.json`](ocr-bien-so.postman_collection.json)**
    from this repo.
 3. A collection **"Traffic AI Service API"** appears in the left sidebar with all
    requests pre-built.
