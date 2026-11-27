@@ -42,7 +42,6 @@ lighter) → optional super-resolution pre-OCR (`SR_ENGINE`) → dual OCR
 (`fast-plate-ocr` + PP-OCRv6). Fusion (`mflpr2` / `eott`, vendored under
 [`fusion_svc/`](../fusion_svc/)) runs **in-process** via
 [`utils/fusion_client.py`](../utils/fusion_client.py) — no sidecar HTTP hop.
-See [`fusion-svc-API.md`](fusion-svc-API.md) for engine internals.
 
 ### Input constraints
 
@@ -253,8 +252,8 @@ No body.
 **POST `/fuse`**
 
 Merges N ordered, **same-size** crops of one plate into a single restored
-plate image. No OCR — mirrors the standalone fusion sidecar's `/fuse` (see
-[`fusion-svc-API.md`](fusion-svc-API.md)), served in-process here.
+plate image. No OCR — mirrors the `/fuse` route of the standalone fusion sidecar, served
+in-process here.
 
 #### Request (form-data + query)
 

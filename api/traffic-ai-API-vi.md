@@ -42,8 +42,7 @@ loại nhẹ) → super-resolution tùy chọn trước OCR (`SR_ENGINE`) → du
 (`fast-plate-ocr` + PP-OCRv6). Fusion (`mflpr2` / `eott`, vendor trong
 [`fusion_svc/`](../fusion_svc/)) chạy **in-process** qua
 [`utils/fusion_client.py`](../utils/fusion_client.py) — không có HTTP hop qua
-sidecar. Xem [`fusion-svc-API.md`](fusion-svc-API.md) (bản gốc, tiếng Anh) cho
-chi tiết nội bộ engine.
+sidecar.
 
 ### Ràng buộc input
 
@@ -256,8 +255,7 @@ Không body.
 **POST `/fuse`**
 
 Gộp N crop cùng kích thước, có thứ tự, của 1 biển số thành 1 ảnh biển số đã
-phục hồi. Không OCR — mirror route `/fuse` của fusion sidecar độc lập (xem
-[`fusion-svc-API.md`](fusion-svc-API.md), bản gốc tiếng Anh), nhưng chạy
+phục hồi. Không OCR — mirror route `/fuse` của fusion sidecar độc lập nhưng chạy
 in-process ở đây.
 
 #### Request (form-data + query)
