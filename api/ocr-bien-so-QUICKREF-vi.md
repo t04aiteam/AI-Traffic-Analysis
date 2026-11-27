@@ -2,6 +2,32 @@
 
 Base URL: `http://10.8.0.16:7862` (cần VPN c09) · Upload: `multipart/form-data` · Tham số query trên URL · Server CPU: 2-25 s mỗi ảnh
 
+## Gửi gì vào đâu
+
+| Bạn có | Gửi tới | Trường | Nhận về |
+|---|---|---|---|
+| Ảnh crop biển số / ảnh chụp cận biển số | `/predict/plates/multiframe` | `files` × 1 | chữ biển số (JSON) |
+| Nhiều crop của **cùng một** biển số | `/predict/plates/multiframe` | `files` × N | một kết quả biển số đã gộp (JSON) |
+| Ảnh toàn cảnh đường phố / giao thông | `/predict/batch?format=json` | `files` × 1..N | xe + chữ biển số (JSON); chỉ đọc biển số trên xe phát hiện được |
+| Ảnh toàn cảnh, cần xem trực quan | `/predict/plates/batch` | `files` × 1..N | ảnh có khung biển số + kết quả đọc (jpeg / zip) |
+| Video | `/predict/plates/video` | `file` × 1 | chữ biển số cho từng biển được theo dõi (JSON) |
+| Video, cần cả xe + biển số | `/predict/batch?format=json` | `files` × 1 | kết quả theo từng track (JSON) |
+| File zip chứa ảnh / video | `/predict/batch` | `files` × 1..N | JSON hoặc media có chú thích |
+| Frame camera trực tiếp, từng frame | `/predict/frame` (sau `/reset`) | `file` × 1 | xe với `track_id` ổn định (JSON) |
+| Nhiều crop cùng kích thước, chỉ cần ảnh phục hồi | `/fuse` | `files` × N | ảnh biển số đã phục hồi (png), không có chữ |
+
+**Không hỗ trợ:** zip ở mọi endpoint trừ `/predict/batch`; video ở mọi endpoint trừ `/predict/batch` và `/predict/plates/video`; ảnh toàn cảnh gửi vào `/predict/plates/multiframe` (endpoint này đọc cả ảnh như một biển số nên lẫn nhãn và chữ khác).
+
+## Định dạng hỗ trợ
+
+| Loại | Định dạng | Endpoint |
+|---|---|---|
+| Ảnh | jpg, jpeg, png, bmp, webp, tif, tiff | tất cả trừ `/predict/plates/video` |
+| Video | mp4, avi, mov, mkv, webm, m4v | `/predict/batch`, `/predict/plates/video` |
+| Zip | zip chứa ảnh và/hoặc video (zip lồng tối đa 2 cấp; tối đa 500 file, 2 GB sau giải nén mỗi request) | chỉ `/predict/batch` |
+
+Có thể trộn ảnh, video và zip trong một request `/predict/batch`.
+
 ## Endpoint
 
 | # | Method | Path | Đầu vào | Đầu ra |
@@ -54,18 +80,6 @@ Với video, trả `tracks` thay cho `detections`.
   "fast": {"text": "51A12345", "confidence": 0.91},
   "ppocr": {"text": "51A12345", "confidence": 0.97}}]
 ```
-
-## Luồng sử dụng
-
-| Mục đích | Gọi |
-|---|---|
-| Đọc 1 ảnh biển số (crop hoặc chụp cận) | `POST /predict/plates/multiframe` với 1 file |
-| Đọc 1 biển số từ nhiều crop | `POST /predict/plates/multiframe` với N file |
-| Tìm + đọc biển trong ảnh đường phố (xem trực quan) | `POST /predict/plates/batch` → jpeg có chú thích |
-| Xe + biển số dạng JSON | `POST /predict/batch?format=json` |
-| Biển số trong video | `POST /predict/plates/video` |
-| Luồng trực tiếp, giữ `track_id` ổn định | `POST /reset`, rồi `POST /predict/frame?frame_number=N` cho mỗi frame |
-| Chỉ lấy ảnh biển đã phục hồi | `POST /fuse` |
 
 ## Ví dụ
 

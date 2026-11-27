@@ -2,6 +2,32 @@
 
 Base URL: `http://10.8.0.16:7862` (c09 VPN required) · Uploads: `multipart/form-data` · Query params in the URL · CPU server: 2-25 s per image
 
+## What to send where
+
+| You have | Send to | Field | Get back |
+|---|---|---|---|
+| Cropped plate / close-up plate photo | `/predict/plates/multiframe` | `files` × 1 | plate text (JSON) |
+| Several crops of the **same** plate | `/predict/plates/multiframe` | `files` × N | one fused plate text (JSON) |
+| Street / traffic scene image(s) | `/predict/batch?format=json` | `files` × 1..N | vehicles + plate text (JSON); plates are read only on detected vehicles |
+| Street / traffic scene image(s), visual check | `/predict/plates/batch` | `files` × 1..N | image with plates boxed + read (jpeg / zip) |
+| Video | `/predict/plates/video` | `file` × 1 | plate text per tracked plate (JSON) |
+| Video, vehicles + plates | `/predict/batch?format=json` | `files` × 1 | per-track results (JSON) |
+| Zip of images / videos | `/predict/batch` | `files` × 1..N | JSON or annotated media |
+| Live camera frames, one at a time | `/predict/frame` (after `/reset`) | `file` × 1 | vehicles with stable `track_id` (JSON) |
+| Several same-size crops, restored image only | `/fuse` | `files` × N | restored plate (png), no text |
+
+**Not supported:** zips anywhere except `/predict/batch`; videos anywhere except `/predict/batch` and `/predict/plates/video`; scene images to `/predict/plates/multiframe` (it reads the whole image as one plate, so labels and other text get mixed in).
+
+## Accepted formats
+
+| Kind | Formats | Endpoints |
+|---|---|---|
+| Image | jpg, jpeg, png, bmp, webp, tif, tiff | all except `/predict/plates/video` |
+| Video | mp4, avi, mov, mkv, webm, m4v | `/predict/batch`, `/predict/plates/video` |
+| Zip | zip of images and/or videos (nested zips up to 2 levels; max 500 files, 2 GB unzipped per request) | `/predict/batch` only |
+
+Mixed images, videos and zips can go in one `/predict/batch` request.
+
 ## Endpoints
 
 | # | Method | Path | Input | Output |
@@ -54,18 +80,6 @@ Videos return `tracks` instead of `detections`.
   "fast": {"text": "51A12345", "confidence": 0.91},
   "ppocr": {"text": "51A12345", "confidence": 0.97}}]
 ```
-
-## Flows
-
-| Goal | Calls |
-|---|---|
-| Read one plate photo (crop or close-up) | `POST /predict/plates/multiframe` with 1 file |
-| Read one plate from several crops | `POST /predict/plates/multiframe` with N files |
-| Find + read plates in a street scene (visual check) | `POST /predict/plates/batch` → annotated jpeg |
-| Vehicles + plates as JSON | `POST /predict/batch?format=json` |
-| Plates in a video | `POST /predict/plates/video` |
-| Live stream, stable `track_id` | `POST /reset`, then `POST /predict/frame?frame_number=N` per frame |
-| Restored plate image only | `POST /fuse` |
 
 ## Examples
 
