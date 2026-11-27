@@ -68,8 +68,9 @@ entire clip automatically. Need the restored image only, no OCR → `POST /fuse`
 
 ## Connection Info
 
-- **Base URL:** `http://<host>:7862` (default `0.0.0.0:7862`; override via
-  `HOST`/`PORT`)
+- **Base URL:** `http://10.8.0.16:7862` (shared CPU server; connect to the c09 VPN
+  first). A local run listens on `http://127.0.0.1:7862` (binds `0.0.0.0:7862`;
+  override via `HOST`/`PORT`). Examples below use the shared server.
 - **Content-Type:** `multipart/form-data` for every request that uploads
   files. Responses are JSON except: `/predict/batch` (`format=media`, default)
   returns `image/jpeg`, `video/mp4`, or `application/zip`; `/predict/plates/batch`
@@ -148,7 +149,7 @@ purpose entry point.
 **Example — curl**
 
 ```bash
-curl -F files=@scene.jpg 'http://localhost:7862/predict/batch?format=json'
+curl -F files=@scene.jpg 'http://10.8.0.16:7862/predict/batch?format=json'
 ```
 
 **Postman:** POST `{{base_url}}/predict/batch` · Body → form-data: `files` (file, repeatable) · Params: `format`, `frame_stride`
@@ -190,7 +191,7 @@ returns the image annotated with boxes + `FAST:`/`PPO:` text labels.
 **Example — curl**
 
 ```bash
-curl -F files=@scene.jpg http://localhost:7862/predict/plates/batch -o plates.jpg
+curl -F files=@scene.jpg http://10.8.0.16:7862/predict/plates/batch -o plates.jpg
 ```
 
 **Postman:** POST `{{base_url}}/predict/plates/batch` · Body → form-data: `files` (file, repeatable)
@@ -220,7 +221,7 @@ Call `POST /reset` before starting an unrelated clip.
 **Example — curl**
 
 ```bash
-curl -F file=@frame0007.jpg 'http://localhost:7862/predict/frame?frame_number=7'
+curl -F file=@frame0007.jpg 'http://10.8.0.16:7862/predict/frame?frame_number=7'
 ```
 
 **Postman:** POST `{{base_url}}/predict/frame` · Body → form-data: `file` (file) · Params: `frame_number`
@@ -266,7 +267,7 @@ in-process here.
 **Example — curl**
 
 ```bash
-curl -X POST 'http://localhost:7862/fuse?engine=mflpr2&scale=2' \
+curl -X POST 'http://10.8.0.16:7862/fuse?engine=mflpr2&scale=2' \
   -F files=@01.png -F files=@02.png -o fused.png
 ```
 
@@ -300,7 +301,7 @@ don't need to already match).
 **Example — curl**
 
 ```bash
-curl -X POST 'http://localhost:7862/predict/plates/multiframe?engine=mflpr2&scale=2' \
+curl -X POST 'http://10.8.0.16:7862/predict/plates/multiframe?engine=mflpr2&scale=2' \
   -F files=@01.png -F files=@02.png -F files=@03.png
 ```
 
@@ -345,7 +346,7 @@ with one or more plates.
 **Example — curl**
 
 ```bash
-curl -X POST 'http://localhost:7862/predict/plates/video?engine=mflpr2' -F file=@clip.mp4
+curl -X POST 'http://10.8.0.16:7862/predict/plates/video?engine=mflpr2' -F file=@clip.mp4
 ```
 
 **Postman:** POST `{{base_url}}/predict/plates/video` · Body → form-data: `file` (file) · Params: `engine`, `scale`, `min_frames`, `max_frames`

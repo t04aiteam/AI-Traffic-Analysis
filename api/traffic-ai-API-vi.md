@@ -71,8 +71,9 @@ cần OCR → `POST /fuse`.
 
 ## Thông tin kết nối
 
-- **Base URL:** `http://<host>:7862` (mặc định `0.0.0.0:7862`; đổi qua
-  `HOST`/`PORT`)
+- **Base URL:** `http://10.8.0.16:7862` (server CPU dùng chung; kết nối VPN c09
+  trước). Khi chạy local: `http://127.0.0.1:7862` (bind `0.0.0.0:7862`; đổi qua
+  `HOST`/`PORT`). Các ví dụ bên dưới dùng server dùng chung.
 - **Content-Type:** `multipart/form-data` cho mọi request upload file.
   Response là JSON, trừ: `/predict/batch` (`format=media`, mặc định) trả về
   `image/jpeg`, `video/mp4`, hoặc `application/zip`; `/predict/plates/batch`
@@ -150,7 +151,7 @@ annotate hoặc JSON detections/tracks. Đây là entry point stateless, đa d�
 **Ví dụ — curl**
 
 ```bash
-curl -F files=@scene.jpg 'http://localhost:7862/predict/batch?format=json'
+curl -F files=@scene.jpg 'http://10.8.0.16:7862/predict/batch?format=json'
 ```
 
 **Postman:** POST `{{base_url}}/predict/batch` · Body → form-data: `files` (file, lặp lại) · Params: `format`, `frame_stride`
@@ -192,7 +193,7 @@ trả về ảnh đã annotate box + label text `FAST:`/`PPO:`.
 **Ví dụ — curl**
 
 ```bash
-curl -F files=@scene.jpg http://localhost:7862/predict/plates/batch -o plates.jpg
+curl -F files=@scene.jpg http://10.8.0.16:7862/predict/plates/batch -o plates.jpg
 ```
 
 **Postman:** POST `{{base_url}}/predict/plates/batch` · Body → form-data: `files` (file, lặp lại)
@@ -223,7 +224,7 @@ khi bắt đầu clip không liên quan.
 **Ví dụ — curl**
 
 ```bash
-curl -F file=@frame0007.jpg 'http://localhost:7862/predict/frame?frame_number=7'
+curl -F file=@frame0007.jpg 'http://10.8.0.16:7862/predict/frame?frame_number=7'
 ```
 
 **Postman:** POST `{{base_url}}/predict/frame` · Body → form-data: `file` (file) · Params: `frame_number`
@@ -269,7 +270,7 @@ in-process ở đây.
 **Ví dụ — curl**
 
 ```bash
-curl -X POST 'http://localhost:7862/fuse?engine=mflpr2&scale=2' \
+curl -X POST 'http://10.8.0.16:7862/fuse?engine=mflpr2&scale=2' \
   -F files=@01.png -F files=@02.png -o fused.png
 ```
 
@@ -304,7 +305,7 @@ không cần khớp sẵn kích thước).
 **Ví dụ — curl**
 
 ```bash
-curl -X POST 'http://localhost:7862/predict/plates/multiframe?engine=mflpr2&scale=2' \
+curl -X POST 'http://10.8.0.16:7862/predict/plates/multiframe?engine=mflpr2&scale=2' \
   -F files=@01.png -F files=@02.png -F files=@03.png
 ```
 
@@ -350,7 +351,7 @@ hoặc nhiều biển số.
 **Ví dụ — curl**
 
 ```bash
-curl -X POST 'http://localhost:7862/predict/plates/video?engine=mflpr2' -F file=@clip.mp4
+curl -X POST 'http://10.8.0.16:7862/predict/plates/video?engine=mflpr2' -F file=@clip.mp4
 ```
 
 **Postman:** POST `{{base_url}}/predict/plates/video` · Body → form-data: `file` (file) · Params: `engine`, `scale`, `min_frames`, `max_frames`
